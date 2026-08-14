@@ -292,6 +292,8 @@ def split_file(
         output_dir (str): the path to the directory where to write all the intermediate files to
 
     """
+    if batch_size < 1:
+        raise ValueError(f"batch_size must be >= 1, got {batch_size}")
     start = time.time()
     with open(input_file, "rb") as fin:
         for i, lines in enumerate(iter(lambda: list(islice(fin, batch_size)), [])):
@@ -365,8 +367,8 @@ def fhir_tagger(
     input_file: str | os.PathLike[str],
     output_file: str | os.PathLike[str],
     config: str | os.PathLike[str],
-    workers: int,
     batch_size: int,
+    workers: int = 8,
     force: bool = False,
 ):
     """
@@ -384,7 +386,10 @@ def fhir_tagger(
     """
 
     start_time = time.time()
-
+    if batch_size < 1:
+        raise ValueError(f"batch_size must be >= 1, got {batch_size}")
+    if workers < 1:
+        raise ValueError(f"workers must be >= 1, got {workers}, default is 8")
     # check if input and output file are the same
     if os.path.realpath(input_file) == os.path.realpath(output_file):
         raise click.UsageError("input_file and output_file must be different")

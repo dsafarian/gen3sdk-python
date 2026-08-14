@@ -44,7 +44,7 @@ def fhir():
 @click.option(
     "-b",
     "--batch_size",
-    type=int,
+    type=click.IntRange(min=1),
     default=10000,
     show_default=True,
     metavar="batch_size",
@@ -53,7 +53,7 @@ def fhir():
 @click.option(
     "-w",
     "--workers",
-    type=int,
+    type=click.IntRange(min=1),
     default=8,
     show_default=True,
     metavar="workers",
