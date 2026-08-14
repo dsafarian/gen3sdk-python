@@ -1,17 +1,8 @@
-import yaml
-from itertools import islice, repeat
-import orjson
 from fhirpathpy import evaluate
 import click
-import os, glob
-import time
-from datetime import datetime, timezone
-import shutil
+import os
 import pathlib
-import hashlib
-from concurrent.futures import ProcessPoolExecutor
 from cdislogging import get_logger
-from gen3.utils import make_folders_for_filename
 from transform_utils import *
 
 logging = get_logger("fhir_tagger", log_level="info")
