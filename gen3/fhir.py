@@ -237,6 +237,9 @@ def _merge_needed(directory: str | os.PathLike[str], record: dict) -> bool:
     Returns:
         status (bool): returns whether the transformed .done files have to be merged
     """
+    # if any .chunk remaining, run is incomplete
+    if any(pathlib.Path(directory).glob("*.chunk")):
+        return False
     # check for .done files --> merge incomplete
     if any(pathlib.Path(directory).glob("*.done")):
         return True

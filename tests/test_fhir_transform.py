@@ -20,8 +20,8 @@ import shutil
 
 TMP_ROOT = pathlib.Path("./test_data/fhir_outputs")
 TAGGER = Gen3FHIRAuthzTagger("config.yaml")
-SRC = "test_data" / "test_fhir_Patient.ndjson"
-IN = "test_data" / "fhir_Patient.ndjson"
+SRC = pathlib.Path("test_data/test_fhir_Patient.ndjson")
+IN = pathlib.Path("test_data/Patient.ndjson")
 OUT = os.path.join(TMP_ROOT, "fhir_output_Patient.ndjson")
 BATCH_SIZE = 1
 BASE_RECORD = {
@@ -96,6 +96,11 @@ def mock_state(
 
 def test_fhir_output():
     """Tests that output file matches the input file with the only difference being the tags"""
+    fin = [
+        orjson.loads(line)
+        for line in pathlib.Path(IN).read_bytes().splitlines()
+        if line.strip()
+    ]
     src = [
         orjson.loads(line)
         for line in pathlib.Path(SRC).read_bytes().splitlines()
@@ -109,15 +114,16 @@ def test_fhir_output():
     ]
 
     # check that output matched input in everything other than the tags
-    assert len(src) == len(
+    assert len(fin) == len(
         out
     ), "Length of the output file does not match the length of the input file"
-    assert {r["id"] for r in src} == {
+    assert {r["id"] for r in fin} == {
         r["id"] for r in out
     }, "IDs in the output file do not match the IDs in the input file. Order not maintained"
-    assert [
-        {k: v for k, v in r.items() if k != "meta.security"} for r in out
-    ] == src, "Content of the output file does not match the content of the input file (other than the security tags)"
+    assert [{k: v for k, v in r.items() if k != "meta"} for r in out] == [
+        {k: v for k, v in r.items() if k != "meta"} for r in fin
+    ], "Content of the output file does not match the content of the input file (other than the security tags)"
+    assert src == out, "Output file does not match source file"
 
 
 def test_chunking():
@@ -401,7 +407,7 @@ class Test_status:
 
     def test_fresh_directory(self):
         # fresh directory
-        directory, record = mock_state(self.tmp_path, config="match")
+        directory, record = mock_state(self.tmp_path, config=None)
         assert _is_new(directory, record) is True
         assert _is_done(directory, record) is False
         assert _resume_run(directory, record) is False
@@ -444,18 +450,14 @@ class Test_status:
 def test_cli():
     """Run the CLI and return the CompletedProcess."""
     args = [
-        "--input",
         IN,
-        "--output",
         OUT,
-        "--chunk-size",
-        "--config",
         "config.yaml",
         "--batch_size",
         str(BATCH_SIZE),
     ]
     result = subprocess.run(
-        [sys.executable, "fhir transform", *args],
+        ["fhir", "transform", *args],
         capture_output=True,
         text=True,
         timeout=60,
@@ -486,18 +488,14 @@ def test_invalid_batch_size_is_rejected(bad):
     out = TMP_ROOT / "cli_test" / "cli_out.ndjson"
 
     args = [
-        "--input",
         IN,
-        "--output",
         out,
-        "--chunk-size",
-        "--config",
         "config.yaml",
         "--batch_size",
         str(bad),
     ]
     result = subprocess.run(
-        [sys.executable, "fhir transform", *args],
+        ["fhir", "transform", *args],
         capture_output=True,
         text=True,
         timeout=60,
@@ -513,18 +511,14 @@ def test_missing_input_file_fails_cleanly():
     """Asserts error is raised if missing input file passed as argument"""
     out = TMP_ROOT / "cli_test" / "nope.ndjson"
     args = [
-        "--input",
         "nope.ndjson",
-        "--output",
         out,
-        "--chunk-size",
-        "--config",
         "config.yaml",
         "--batch_size",
         str(BATCH_SIZE),
     ]
     result = subprocess.run(
-        [sys.executable, "fhir transform", *args],
+        ["fhir", "transform", *args],
         capture_output=True,
         text=True,
         timeout=60,
@@ -540,18 +534,14 @@ def test_output_directory_does_not_exist():
     """Test response if output directory doesn't exists. Directory (and parents) should be created if missing"""
     out = TMP_ROOT / "missing_dir" / "out.ndjson"
     args = [
-        "--input",
         IN,
-        "--output",
         out,
-        "--chunk-size",
-        "--config",
         "config.yaml",
         "--batch_size",
         str(BATCH_SIZE),
     ]
     result = subprocess.run(
-        [sys.executable, "fhir transform", *args],
+        ["fhir", "transform", *args],
         capture_output=True,
         text=True,
         timeout=60,
