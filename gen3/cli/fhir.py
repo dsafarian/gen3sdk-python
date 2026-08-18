@@ -3,9 +3,9 @@ import click
 import os
 import pathlib
 from cdislogging import get_logger
-from transform_utils import *
+from gen3.fhir import *
 
-logging = get_logger("fhir_tagger", log_level="info")
+logging = get_logger("fhir_transform", log_level="info")
 TMP_ROOT = pathlib.Path(".fhir_transform/tmp")
 
 

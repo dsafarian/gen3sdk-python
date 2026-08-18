@@ -13,7 +13,7 @@ from concurrent.futures import ProcessPoolExecutor
 from cdislogging import get_logger
 from gen3.utils import make_folders_for_filename
 
-logging = get_logger("fhir_tagger", log_level="info")
+logging = get_logger("fhir_transform", log_level="info")
 TMP_ROOT = pathlib.Path(".fhir_transform/tmp")
 
 
@@ -351,8 +351,12 @@ def merge_chunks(
 
     """
     start = time.time()
-    print(output_file)
-    with open(f"{output_file}", "wb") as fout:
+    out = pathlib.Path(output_file)
+
+    # creates all directories in path if dont exist
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(out, "wb") as fout:
         for f in sorted(input_files):
             with open(f, "rb") as fin:
                 shutil.copyfileobj(fin, fout)
