@@ -127,6 +127,7 @@ class Gen3FHIRAuthzTagger:
 
         return resource
 
+
 def json_dumps(obj, default=None) -> bytes:
     """Compact UTF-8 JSON bytes. Stand-in for orjson.dumps."""
     return json.dumps(
@@ -136,6 +137,7 @@ def json_dumps(obj, default=None) -> bytes:
         separators=(",", ":"),
         default=default,
     ).encode("utf-8")
+
 
 def get_md5hash(input_file: str | os.PathLike[str]) -> str:
     """
@@ -343,9 +345,7 @@ def transform_chunk(
 
             record = json.loads(r)
             authz_tags = tagger.determine_authz(record)  # generate tags
-            out += json_dumps(
-                tagger.tag_resource(record, authz_tags)
-            )  # tag resources)
+            out += json_dumps(tagger.tag_resource(record, authz_tags))  # tag resources)
             out += b"\n"
         fout.write(out)
         os.remove(input_file)  # delete chunk file once it has been transformed
