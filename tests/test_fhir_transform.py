@@ -77,7 +77,7 @@ def mock_state(
         params = None
 
     if params is not None:
-        (directory / ".config.json").write_text(json.dumps(params),encoding="utf-8")
+        (directory / ".config.json").write_text(json.dumps(params), encoding="utf-8")
     elif isinstance(config, str) and config != "match":
         (directory / ".config.json").write_text(config, encoding="utf-8")
 
