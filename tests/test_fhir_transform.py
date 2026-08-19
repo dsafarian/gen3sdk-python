@@ -1,6 +1,6 @@
 import pytest
 import math
-from transform_utils import (
+from gen3.fhir import (
     Gen3FHIRAuthzTagger,
     _is_new,
     _is_done,
@@ -13,21 +13,21 @@ from transform_utils import (
 )
 import pathlib
 import os
-import orjson
+import json
 import subprocess
-import sys
 import shutil
 
-TMP_ROOT = pathlib.Path("./test_data/fhir_outputs")
-TAGGER = Gen3FHIRAuthzTagger("config.yaml")
-SRC = pathlib.Path("test_data/test_fhir_Patient.ndjson")
-IN = pathlib.Path("test_data/Patient.ndjson")
+TMP_ROOT = pathlib.Path("./tests/test_data/fhir_outputs")
+SRC = pathlib.Path("./tests/test_data/test_fhir_Patient.ndjson")
+IN = pathlib.Path("./tests/test_data/Patient.ndjson")
 OUT = os.path.join(TMP_ROOT, "fhir_output_Patient.ndjson")
+CONFIG_SRC = pathlib.Path("./tests/test_data/fhir_config.yaml")
+TAGGER = Gen3FHIRAuthzTagger(CONFIG_SRC)
 BATCH_SIZE = 1
 BASE_RECORD = {
     "timestamp": "2026-08-12T21:00:20.677168+00:00",
-    "input_file": "output/fhir/Patient.ndjson",
-    "output_file": "outputs/test_status/status.ndjson",
+    "input_file": "./tests/test_data/Patient.ndjson",
+    "output_file": "./tests/test_data/fhir_outputs/status.ndjson",
     "config_hash": "9c61e70e3ea403e3daf1ee795036253c",
     "batch_size": 1,
 }
@@ -77,7 +77,7 @@ def mock_state(
         params = None
 
     if params is not None:
-        (directory / ".config.json").write_bytes(orjson.dumps(params))
+        (directory / ".config.json").write_text(json.dumps(params),encoding="utf-8")
     elif isinstance(config, str) and config != "match":
         (directory / ".config.json").write_text(config, encoding="utf-8")
 
@@ -97,18 +97,18 @@ def mock_state(
 def test_fhir_output():
     """Tests that output file matches the input file with the only difference being the tags"""
     fin = [
-        orjson.loads(line)
+        json.loads(line)
         for line in pathlib.Path(IN).read_bytes().splitlines()
         if line.strip()
     ]
     src = [
-        orjson.loads(line)
+        json.loads(line)
         for line in pathlib.Path(SRC).read_bytes().splitlines()
         if line.strip()
     ]
-    fhir_tagger(IN, OUT, "config.yaml", 8, BATCH_SIZE)
+    fhir_tagger(IN, OUT, CONFIG_SRC, 8, BATCH_SIZE)
     out = [
-        orjson.loads(line)
+        json.loads(line)
         for line in pathlib.Path(OUT).read_bytes().splitlines()
         if line.strip()
     ]
@@ -131,7 +131,7 @@ def test_chunking():
     split_file(IN, BATCH_SIZE, TMP_ROOT)
     chunks = list(TMP_ROOT.glob("*.chunk"))
     fin = [
-        orjson.loads(line)
+        json.loads(line)
         for line in pathlib.Path(IN).read_bytes().splitlines()
         if line.strip()
     ]
@@ -140,7 +140,7 @@ def test_chunking():
     # number of chunk files matches expected
     assert len(chunks) == expected, f"Expected {expected} chunks, found {len(chunks)}"
     recombined = [
-        orjson.loads(line)
+        json.loads(line)
         for p in sorted(chunks)
         for line in p.read_bytes().splitlines()
         if line.strip()
@@ -181,12 +181,12 @@ def test_merge():
     merge_chunks(transformed, OUT)
     merged = pathlib.Path(OUT).read_text(encoding="utf-8")
     fin = [
-        orjson.loads(line)
+        json.loads(line)
         for line in pathlib.Path(IN).read_bytes().splitlines()
         if line.strip()
     ]
     fout = fin = [
-        orjson.loads(line)
+        json.loads(line)
         for line in pathlib.Path(OUT).read_bytes().splitlines()
         if line.strip()
     ]
@@ -208,7 +208,7 @@ def test_merge():
     assert not merged.endswith("\n\n"), "File ends with a blank line"
     for i, line in enumerate(merged.split("\n")[:-1]):
         assert line.strip(), f"blank line at index {i}"
-        orjson.loads(line)  # every line independently parses
+        json.loads(line)  # every line independently parses
 
 
 class Test_is_new:
@@ -452,12 +452,12 @@ def test_cli():
     args = [
         IN,
         OUT,
-        "config.yaml",
+        CONFIG_SRC,
         "--batch_size",
         str(BATCH_SIZE),
     ]
     result = subprocess.run(
-        ["fhir", "transform", *args],
+        ["gen3", "fhir", "transform", *args],
         capture_output=True,
         text=True,
         timeout=60,
@@ -465,12 +465,12 @@ def test_cli():
 
     assert pathlib.Path(OUT).exists(), "CLI exited 0 but wrote no output file"
     records = [
-        orjson.loads(line)
+        json.loads(line)
         for line in pathlib.Path(OUT).read_bytes().splitlines()
         if line.strip()
     ]
     in_records = [
-        orjson.loads(line)
+        json.loads(line)
         for line in pathlib.Path(IN).read_bytes().splitlines()
         if line.strip()
     ]
@@ -490,12 +490,12 @@ def test_invalid_batch_size_is_rejected(bad):
     args = [
         IN,
         out,
-        "config.yaml",
+        CONFIG_SRC,
         "--batch_size",
         str(bad),
     ]
     result = subprocess.run(
-        ["fhir", "transform", *args],
+        ["gen3", "fhir", "transform", *args],
         capture_output=True,
         text=True,
         timeout=60,
@@ -513,12 +513,12 @@ def test_missing_input_file_fails_cleanly():
     args = [
         "nope.ndjson",
         out,
-        "config.yaml",
+        CONFIG_SRC,
         "--batch_size",
         str(BATCH_SIZE),
     ]
     result = subprocess.run(
-        ["fhir", "transform", *args],
+        ["gen3", "fhir", "transform", *args],
         capture_output=True,
         text=True,
         timeout=60,
@@ -536,12 +536,12 @@ def test_output_directory_does_not_exist():
     args = [
         IN,
         out,
-        "config.yaml",
+        CONFIG_SRC,
         "--batch_size",
         str(BATCH_SIZE),
     ]
     result = subprocess.run(
-        ["fhir", "transform", *args],
+        ["gen3", "fhir", "transform", *args],
         capture_output=True,
         text=True,
         timeout=60,

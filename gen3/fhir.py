@@ -1,6 +1,6 @@
 import yaml
 from itertools import islice, repeat
-import orjson
+import json
 from fhirpathpy import evaluate
 import click
 import os, glob
@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 import shutil
 import pathlib
 import hashlib
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from cdislogging import get_logger
 from gen3.utils import make_folders_for_filename
 
@@ -25,7 +25,7 @@ class Gen3FHIRAuthzTagger:
         tagger = Gen3FHIRAuthzTagger(config_path=config) #create instance of tagger
         tagger.relevant_authz_rules(os.path.basename(input_file).split(".")[0]) #keep only relevant rules for the resource type
         authz_tags = tagger.determine_authz(record) #generate tags
-        out = orjson.dumps(tagger.tag_resource(record, authz_tags)) #tag resources
+        out = json.dumps(tagger.tag_resource(record, authz_tags)) #tag resources
 
     """
 
@@ -127,6 +127,15 @@ class Gen3FHIRAuthzTagger:
 
         return resource
 
+def json_dumps(obj, default=None) -> bytes:
+    """Compact UTF-8 JSON bytes. Stand-in for orjson.dumps."""
+    return json.dumps(
+        obj,
+        ensure_ascii=False,
+        allow_nan=False,
+        separators=(",", ":"),
+        default=default,
+    ).encode("utf-8")
 
 def get_md5hash(input_file: str | os.PathLike[str]) -> str:
     """
@@ -161,7 +170,7 @@ def _is_new(directory: str | os.PathLike[str], record: dict) -> bool:
         return True
 
     try:
-        params = orjson.loads(pathlib.Path(directory, ".config.json").read_bytes())
+        params = json.loads(pathlib.Path(directory, ".config.json").read_bytes())
     except:
         return True
 
@@ -187,7 +196,7 @@ def _is_done(directory: str | os.PathLike[str], record: dict) -> bool:
         status (bool): returns whether the transformation has beencompleted
     """
     try:
-        params = orjson.loads(pathlib.Path(directory, ".config.json").read_bytes())
+        params = json.loads(pathlib.Path(directory, ".config.json").read_bytes())
         if (
             record["config_hash"] != params["config_hash"]
             or record["batch_size"] != params["batch_size"]
@@ -332,9 +341,9 @@ def transform_chunk(
             if not r.strip():
                 continue
 
-            record = orjson.loads(r)
+            record = json.loads(r)
             authz_tags = tagger.determine_authz(record)  # generate tags
-            out += orjson.dumps(
+            out += json_dumps(
                 tagger.tag_resource(record, authz_tags)
             )  # tag resources)
             out += b"\n"
@@ -426,8 +435,8 @@ def fhir_tagger(
         if _is_new(output_dir, record):
             logging.info("New folder, creating directory and chunking")
             make_folders_for_filename(f"{output_dir}/.config.json")
-            pathlib.Path(f"{output_dir}/.config.json").write_bytes(
-                orjson.dumps(record, default=str)
+            pathlib.Path(f"{output_dir}/.config.json").write_text(
+                json.dumps(record, default=str), encoding="utf-8"
             )
             # split into chunks
             logging.info(f"Chunking {input_file} into {batch_size}-sized batches...")
@@ -448,7 +457,7 @@ def fhir_tagger(
             # parallelize transform
             logging.info("Transforming chunks...")
             start = time.time()
-            with ProcessPoolExecutor(max_workers=workers) as pool:
+            with ThreadPoolExecutor(max_workers=workers) as pool:
                 for _ in pool.map(
                     transform_chunk, chunk_files, repeat(tagger), repeat(output_dir)
                 ):

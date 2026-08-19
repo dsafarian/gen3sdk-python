@@ -1,0 +1,4 @@
+guid,urls,authz,acl,md5,file_size,file_name
+,gs://foo/bar,programs/foo/projects/bar,,a1234567891234567890123456789012,42,
+,gs://foo/bar,programs/foo/projects/bar,,x1234567891234567890123456789012,42,
+,gs://foo/bar,programs/foo/projects/bar,,f1234567891234567890123456789012,234,
