@@ -1,1 +1,0 @@
-{"timestamp": "2026-08-12T21:00:20.677168+00:00", "input_file": "./tests/test_data/Patient.ndjson", "output_file": "/tmp/somewhere_else.ndjson", "config_hash": "9c61e70e3ea403e3daf1ee795036253c", "batch_size": 1}
