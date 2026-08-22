@@ -32,7 +32,10 @@ BASE_RECORD = {
     "batch_size": 1,
 }
 
-os.makedirs(TMP_ROOT, exist_ok=True)
+
+@pytest.fixture(scope="session")
+def tmp_root(tmp_path_factory):
+    return tmp_path_factory.mktemp(TMP_ROOT)
 
 
 def mock_state(

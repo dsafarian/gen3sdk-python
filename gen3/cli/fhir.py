@@ -1,11 +1,10 @@
-from fhirpathpy import evaluate
 import click
 import os
 import pathlib
 from cdislogging import get_logger
 from gen3.fhir import *
 
-logging = get_logger("fhir_transform", log_level="info")
+logging = get_logger(__name__)
 TMP_ROOT = pathlib.Path(".fhir_transform/tmp")
 
 
@@ -100,7 +99,7 @@ def cleanup(dry_run: bool, force: bool):
         force (bool): Delete all intermediate directories disregarding the status
     """
 
-    sweep(dry_run=dry_run, force=force)
+    cleanup_fhir_transform_artifacts(dry_run=dry_run, force=force)
 
 
 fhir.add_command(cli, name="transform")

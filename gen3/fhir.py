@@ -9,12 +9,14 @@ from datetime import datetime, timezone
 import shutil
 import pathlib
 import hashlib
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from cdislogging import get_logger
 from gen3.utils import make_folders_for_filename
+from collections.abc import Callable
 
-logging = get_logger("fhir_transform", log_level="info")
+logging = get_logger(__name__)
 TMP_ROOT = pathlib.Path(".fhir_transform/tmp")
+GEN3_PATH = "http://gen3.org/authz"
 
 
 class Gen3FHIRAuthzTagger:
@@ -29,13 +31,17 @@ class Gen3FHIRAuthzTagger:
 
     """
 
-    def __init__(self, config_path: str | os.PathLike[str], custom_hook=None):
+    def __init__(
+        self,
+        config_path: str | os.PathLike[str],
+        custom_hook: Callable[[dict], dict] | None = None,
+    ):
         """
         Initialize instance of the tagger.
 
         Args:
             config_path (str): the name/path of the config.yaml file
-            custom_hook (?): ???
+            custom_hook (Callable): used for authorization instead of the configuration if called
         """
 
         with open(config_path, "r") as f:
@@ -64,7 +70,7 @@ class Gen3FHIRAuthzTagger:
             resource (dict): the resource dictionary (a line of the .ndjson file)
 
         Returns:
-            The appropriate rule/authorization for the resource
+            authz (str): The appropriate rule/authorization for the resource
 
         """
 
@@ -78,20 +84,21 @@ class Gen3FHIRAuthzTagger:
         if "global_authz" in self.config:
             return self.config["global_authz"]
 
-        # resource_type = resource.get("resourceType")
-
-        # check static rules engine via FHIRPath
-        #    for rule in self.config.get("rules", []):
-        #        if rule["resource_type"] == resource_type:
-        #            match = evaluate(resource, rule["condition"])  #how to process in bulk
-        #            if match and match[0] is True:
-        #                return rule["authz"]
+        matches = []
         for rule in self.rules:
             match = evaluate(resource, rule["condition"])
-            if match and match[0] is True:  # FIXME: what if multiple conditions match?
-                return rule["authz"]
+            # FIXME: what if multiple conditions match?, add error if multiple conditions match -->user makes necessary changes
+            if match and match[0] is True:
+                matches.append(rule)
 
-        return None  #### FIXME this is just for testing purposes #####
+        if len(matches) > 1:
+            raise ValueError(
+                f"Resource {resource.get('id')!r} matched {len(matches)} authorization conditions; expected at most 1. Conflicting: {[m["condition"] for m in matches]}"
+            )
+
+        elif len(matches) == 1:
+            return matches[0]["authz"]
+
         raise ValueError(
             f"No authorization tag mapping found for resource ID: {resource.get('id')}"
         )
@@ -100,8 +107,7 @@ class Gen3FHIRAuthzTagger:
         """
         Injects the authz path directly into the standard FHIR meta block
 
-
-        FIXME: match Gen3 FHIR Proxy service requirements here
+        Must match Gen3 FHIR Proxy service requirements here
 
         Args:
             resource (dict): the resource dictionary (a line of the .ndjson file)
@@ -117,7 +123,7 @@ class Gen3FHIRAuthzTagger:
             resource["meta"]["security"] = []
 
         gen3_security_tag = {
-            "system": "http://gen3.org/authz",
+            "system": GEN3_PATH,
             "code": authz,
             "display": f"Gen3 Policy Path: {authz}",
         }
@@ -129,7 +135,7 @@ class Gen3FHIRAuthzTagger:
 
 
 def json_dumps(obj, default=None) -> bytes:
-    """Compact UTF-8 JSON bytes. Stand-in for orjson.dumps."""
+    """Compact UTF-8 JSON bytes."""
     return json.dumps(
         obj,
         ensure_ascii=False,
@@ -173,7 +179,7 @@ def _is_new(directory: str | os.PathLike[str], record: dict) -> bool:
 
     try:
         params = json.loads(pathlib.Path(directory, ".config.json").read_bytes())
-    except:
+    except (OSError, ValueError):
         return True
 
     if (
@@ -205,7 +211,7 @@ def _is_done(directory: str | os.PathLike[str], record: dict) -> bool:
             or record["output_file"] != params["output_file"]
         ):
             return False
-    except:
+    except (OSError, ValueError):
         return False
 
     # check if output file is the same and if exists
@@ -257,7 +263,7 @@ def _merge_needed(directory: str | os.PathLike[str], record: dict) -> bool:
     return False
 
 
-def sweep(dry_run: bool = False, force: bool = False) -> int:
+def cleanup_fhir_transform_artifacts(dry_run: bool = False, force: bool = False) -> int:
     """
     Remove run dirs whose owning process is gone.
 
@@ -311,7 +317,6 @@ def split_file(
     start = time.time()
     with open(input_file, "rb") as fin:
         for i, lines in enumerate(iter(lambda: list(islice(fin, batch_size)), [])):
-            # with open(f"chunk_{i:05d}.chunk", "wb") as out:
             with open(
                 f"{output_dir}/{pathlib.Path(input_file).stem}_{i:05d}.chunk", "wb"
             ) as out:
@@ -344,11 +349,14 @@ def transform_chunk(
                 continue
 
             record = json.loads(r)
-            authz_tags = tagger.determine_authz(record)  # generate tags
-            out += json_dumps(tagger.tag_resource(record, authz_tags))  # tag resources)
+            # generate tags
+            authz_tags = tagger.determine_authz(record)
+            # tag resources
+            out += json_dumps(tagger.tag_resource(record, authz_tags))
             out += b"\n"
         fout.write(out)
-        os.remove(input_file)  # delete chunk file once it has been transformed
+        # delete chunk file once it has been transformed
+        os.remove(input_file)
 
 
 def merge_chunks(
@@ -375,8 +383,9 @@ def merge_chunks(
     logging.info(
         f"merge chunks total time: {(time.strftime('%H:%M:%S', time.gmtime(time.time() - start)))}"
     )
+    # remove .done files once merge completed
     for f in input_files:
-        os.remove(f)  # remove .done files once merge completed
+        os.remove(f)
 
 
 def fhir_tagger(
@@ -410,7 +419,8 @@ def fhir_tagger(
     if os.path.realpath(input_file) == os.path.realpath(output_file):
         raise click.UsageError("input_file and output_file must be different")
 
-    make_folders_for_filename(TMP_ROOT)  # only necessary the first time its run
+    # only necessary the first time its run
+    make_folders_for_filename(TMP_ROOT)
 
     # make temp directories
     hash = get_md5hash(input_file)
@@ -443,16 +453,16 @@ def fhir_tagger(
             split_file(input_file, batch_size, output_dir)
 
         # initialize tagger
-        tagger = Gen3FHIRAuthzTagger(config_path=config)  # create instance of tagger
-        tagger.relevant_authz_rules(
-            os.path.basename(input_file).split(".")[0]
-        )  # keep only relevant rules for the resource type
+        tagger = Gen3FHIRAuthzTagger(config_path=config)
+        # keep only relevant rules for the resource type
+        tagger.relevant_authz_rules(os.path.basename(input_file).split(".")[0])
 
         # if not fully transformed or new/reset, resume
         if not _merge_needed(output_dir, record):
+            # paths for chunk files
             chunk_files = glob.glob(
                 os.path.join(output_dir, f"{pathlib.Path(input_file).stem}_*.chunk")
-            )  # paths for chunk files
+            )
 
             # parallelize transform
             logging.info("Transforming chunks...")
@@ -469,13 +479,12 @@ def fhir_tagger(
         # merge back to one ndjson file
         transformed_files = glob.glob(
             os.path.join(output_dir, f"{pathlib.Path(input_file).stem}_*.done")
-        )  # paths for transformed files
+        )
         logging.info(f"Merging chunks to {output_file}...")
         merge_chunks(transformed_files, output_file)
 
         elapsed_time = time.time() - start_time
         logging.info(f"Tagged file -> {output_file}")
-        # logging.info(f"Total time to process: {(time.strftime('%H:%M:%S', time.gmtime(elapsed_time)))}")
         logging.info(
             f"Total time to process: {(time.strftime('%H:%M:%S', time.gmtime(elapsed_time)))}"
         )

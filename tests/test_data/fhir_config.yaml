@@ -34,6 +34,10 @@ rules:
  -  resource_type: "Patient"
     condition: "Patient.gender = 'male'"
     authz: "/programs/Alpha/projects/Biobank"
+  
+ -  resource_type: "Patient"
+    condition: "Patient.gender = 'female'"
+    authz: "/programs/Restricted/projects/Genomics"
 
 
 
