@@ -87,7 +87,7 @@ class Gen3FHIRAuthzTagger:
         matches = []
         for rule in self.rules:
             match = evaluate(resource, rule["condition"])
-            # FIXME: what if multiple conditions match?, add error if multiple conditions match -->user makes necessary changes
+            
             if match and match[0] is True:
                 matches.append(rule)
 
