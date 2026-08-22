@@ -54,7 +54,6 @@ requests-mock = "*"
 cdisutilstest = { git = "https://github.com/uc-cdis/cdisutils-test.git", tag = "2.0.0" }
 indexd = { git = "https://github.com/uc-cdis/indexd.git", tag = "5.0.4" }
 deptry = "^0.23.1"
-setuptools = "<82"
 
 [tool.poetry.scripts]
 gen3 = "gen3.cli.__main__:main"
