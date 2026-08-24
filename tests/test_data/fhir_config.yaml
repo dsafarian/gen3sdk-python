@@ -11,10 +11,6 @@ rules:
    condition: "Patient.managingOrganization.reference = 'Organization/site-alpha'"
    authz: "/programs/Alpha/projects/Main"
 
- - resource_type: "Patient"
-   condition: "Patient.managingOrganization.reference = 'Organization/site-alpha'"
-   authz: "/programs/Alpha/projects/Main"
-
  - resource_type: "Observation"
    condition: "Observation.code.coding.where(code = '9876-5').exists()"
    authz: "/programs/Restricted/projects/Genomics"

@@ -9,13 +9,13 @@ from datetime import datetime, timezone
 import shutil
 import pathlib
 import hashlib
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from cdislogging import get_logger
 from gen3.utils import make_folders_for_filename
 from collections.abc import Callable
 
 logging = get_logger(__name__)
-TMP_ROOT = pathlib.Path(".fhir_transform/tmp")
+DEFAULT_WORK_DIR = "~/.cache/gen3/fhir_transform"
 GEN3_PATH = "http://gen3.org/authz"
 
 
@@ -133,6 +133,19 @@ class Gen3FHIRAuthzTagger:
 
         return resource
 
+def resolve_work_dir(work_dir: str | os.PathLike[str] | None = None, clean: bool = False) -> pathlib.Path:
+    root = pathlib.Path(
+        work_dir or os.environ.get("GEN3_FHIR_WORK_DIR") or DEFAULT_WORK_DIR
+    ).expanduser()
+   
+    if not clean:
+        root.mkdir(parents=True, exist_ok=True)
+
+    # 0o700 makes it only only readable by owner and not everyone else (which is important 
+    # for potentially shared machines and potential FHIR PHI)
+    root.chmod(0o700)
+
+    return root
 
 def json_dumps(obj, default=None) -> bytes:
     """Compact UTF-8 JSON bytes."""
@@ -174,6 +187,7 @@ def _is_new(directory: str | os.PathLike[str], record: dict) -> bool:
         status (bool): returns whether the directory is new/has to be reset or not
     """
 
+    
     if not pathlib.Path(directory).is_dir():
         return True
 
@@ -203,6 +217,7 @@ def _is_done(directory: str | os.PathLike[str], record: dict) -> bool:
     Returns:
         status (bool): returns whether the transformation has beencompleted
     """
+
     try:
         params = json.loads(pathlib.Path(directory, ".config.json").read_bytes())
         if (
@@ -211,6 +226,7 @@ def _is_done(directory: str | os.PathLike[str], record: dict) -> bool:
             or record["output_file"] != params["output_file"]
         ):
             return False
+
     except (OSError, ValueError):
         return False
 
@@ -263,7 +279,7 @@ def _merge_needed(directory: str | os.PathLike[str], record: dict) -> bool:
     return False
 
 
-def cleanup_fhir_transform_artifacts(dry_run: bool = False, force: bool = False) -> int:
+def cleanup_fhir_transform_artifacts(work_dir, dry_run: bool = False, force: bool = False) -> int:
     """
     Remove run dirs whose owning process is gone.
 
@@ -274,18 +290,18 @@ def cleanup_fhir_transform_artifacts(dry_run: bool = False, force: bool = False)
     Output:
         count(int): number of directories deleted
     """
-
-    if not TMP_ROOT.is_dir():
+    working_dir = resolve_work_dir(work_dir, clean=True)
+    if not working_dir.is_dir():
         logging.info("Nothing to clean")
         return 0
 
     # force to delete everything disregarding status
     if force:
-        shutil.rmtree(TMP_ROOT, ignore_errors=True)
+        shutil.rmtree(working_dir, ignore_errors=True)
         return
 
     count = 0
-    for run_dir in sorted(TMP_ROOT.glob("*")):
+    for run_dir in sorted(working_dir.glob("*")):
         if not run_dir.is_dir():
             continue
 
@@ -388,11 +404,12 @@ def merge_chunks(
         os.remove(f)
 
 
-def fhir_tagger(
+def tag_fhir_resources_with_authz(
     input_file: str | os.PathLike[str],
     output_file: str | os.PathLike[str],
     config: str | os.PathLike[str],
-    batch_size: int,
+    batch_size: int = 10000,
+    work_dir: str | os.PathLike[str] = DEFAULT_WORK_DIR,
     workers: int = 8,
     force: bool = False,
 ):
@@ -406,6 +423,7 @@ def fhir_tagger(
             output_file (str): Output file name
             config (str): .yaml file with authorization rules
             batch_size (int): number of lines per chunk
+            work_dir (str): static work directory where all run directories are stored
             workers (int): number of parallel processes
             force (bool): remove all intermediate files for this run before exiting even if it crashes
     """
@@ -420,11 +438,11 @@ def fhir_tagger(
         raise click.UsageError("input_file and output_file must be different")
 
     # only necessary the first time its run
-    make_folders_for_filename(TMP_ROOT)
+    working_dir = resolve_work_dir(work_dir)
 
     # make temp directories
     hash = get_md5hash(input_file)
-    output_dir = f"{TMP_ROOT}/{os.path.basename(input_file).split('.')[0]}_{hash}"
+    output_dir = f"{working_dir}/{os.path.basename(input_file).split('.')[0]}_{hash}"
 
     record = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -444,6 +462,8 @@ def fhir_tagger(
         # if new file or new config/batch_size, reset folder
         if _is_new(output_dir, record):
             logging.info("New folder, creating directory and chunking")
+            if pathlib.Path(output_dir).exists():
+                shutil.rmtree(output_dir)
             make_folders_for_filename(f"{output_dir}/.config.json")
             pathlib.Path(f"{output_dir}/.config.json").write_text(
                 json.dumps(record, default=str), encoding="utf-8"
