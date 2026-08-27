@@ -173,6 +173,51 @@ def get_sha256hash(input_file: str | os.PathLike[str]) -> str:
         digest = hashlib.file_digest(f, "sha256").hexdigest()
     return digest
 
+def get_resource_type(input_file, sample=5):
+    """
+    Check resource type within the input .ndjson file by reading the first few and last few lines
+    
+    Args:
+        input_file(str): Input ndjson file to be transformed
+        sample(int): number of lines to read
+    
+    Returns:
+        resource_type(str): Resource type contained within the ndjson (one per file)
+    
+    """
+
+    path = pathlib.Path(input_file)
+    size = path.stat().st_size
+    
+    with path.open("rb") as f:
+        head = list(islice((ln for ln in f if ln.strip()), sample))
+        if not head:
+            raise ValueError(f"{path}: file has no records")
+
+        #calculate approximate offset from end of file, guards from concatnated files with different resource types
+        f.seek(max(0, size - max(len(ln) for ln in head) * sample * 2))
+        # drop [0]: a partial line mid-file, or a line the head already has
+        tail = [ln for ln in f.read().split(b"\n")[1:] if ln.strip()][-sample:]
+
+        if len(tail) < sample:
+            f.seek(0)
+            tail = [ln for ln in f.read().split(b"\n") if ln.strip()][-sample:]
+
+    types = set()
+    for raw in head + tail:
+        try:
+            rec = json.loads(raw.decode("utf-8-sig"))
+        except json.JSONDecodeError as e:
+            raise ValueError(f"{path}: malformed JSON in sampled line: {e}") from e
+        if not isinstance(rec, dict) or "resourceType" not in rec:
+            raise ValueError(f"{path}: sampled line has no 'resourceType' field")
+        types.add(rec["resourceType"])
+
+    if len(types) == 1:
+        return types.pop()
+    else:
+        raise ValueError(f"Expected 1 resource type per file, got {len(types)} types: {sorted(types)} in {input_file}.")
+    
 
 def _is_new(directory: str | os.PathLike[str], record: dict) -> bool:
     """
@@ -420,6 +465,10 @@ def tag_fhir_resources_with_authz(
     if os.path.realpath(input_file) == os.path.realpath(output_file):
         raise click.UsageError("input_file and output_file must be different")
 
+    #check if input file is empty
+    if pathlib.Path(input_file).stat().st_size == 0:
+            raise ValueError(f"{input_file}: file is empty")
+    
     # only necessary the first time its run
     working_dir = resolve_work_dir(work_dir)
 
@@ -458,7 +507,8 @@ def tag_fhir_resources_with_authz(
         # initialize tagger
         tagger = Gen3FHIRAuthzTagger(config_path=config)
         # keep only relevant rules for the resource type
-        tagger.relevant_authz_rules(os.path.basename(input_file).split(".")[0])
+        resource_type = get_resource_type(input_file)
+        tagger.relevant_authz_rules(resource_type)
 
         # if not fully transformed or new/reset, resume
         if not _merge_needed(output_dir, record):
@@ -504,6 +554,6 @@ def tag_fhir_resources_with_authz(
         if force:
             shutil.rmtree(output_dir, ignore_errors=True)
         else:
-            logging.error("run failed; intermediates left in %s", output_dir)
+            logging.error("Run failed; intermediates left in %s", output_dir)
         raise 
 

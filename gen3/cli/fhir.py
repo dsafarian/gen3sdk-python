@@ -17,7 +17,7 @@ def fhir():
     help="""Tag Bulk FHIR data with Gen3 compatible authorization tags.
 
     \b 
-    input_file (str): Input .ndjson file with Bulk FHIR data, one resource type per file
+    input_file (str): Input .ndjson file with Bulk FHIR data, MUST be one resource type per file
     output_file (str): Output file name, also an .ndjson file
     config (str): .yaml file with authorization rules, see docs/howto/fhir.md for more details on formatting
     """,
