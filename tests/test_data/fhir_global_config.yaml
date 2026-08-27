@@ -1,8 +1,8 @@
 version: "1.0"
 
 
-##Global Override (Applies to all resources if used)
-#global_authz: "/programs/NCI/projects/TargetedStudyA"
+#Global Override (Applies to all resources if used)
+global_authz: "/programs/NCI/projects/TargetedStudyA"
 
 
 # Conditional Field-Level Routing (Per Resource Type)

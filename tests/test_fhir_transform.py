@@ -17,12 +17,15 @@ import os
 import json
 import subprocess
 import shutil
+import yaml
+
 
 TMP_ROOT = pathlib.Path("./tests/test_data/fhir_outputs")
 SRC = pathlib.Path("./tests/test_data/test_fhir_Patient.ndjson")
 IN = pathlib.Path("./tests/test_data/Patient.ndjson")
 OUT = os.path.join(TMP_ROOT, "fhir_output_Patient.ndjson")
 CONFIG_SRC = pathlib.Path("./tests/test_data/fhir_config.yaml")
+GLOBAL_CONFIG_SRC = pathlib.Path("./tests/test_data/fhir_global_config.yaml")
 TAGGER = Gen3FHIRAuthzTagger(CONFIG_SRC)
 BATCH_SIZE = 1
 BASE_RECORD = {
@@ -35,8 +38,11 @@ BASE_RECORD = {
 
 
 @pytest.fixture(scope="session")
-def tmp_root(tmp_path_factory):
-    return tmp_path_factory.mktemp(TMP_ROOT)
+def tmp_root():
+    root = pathlib.Path(__file__).parent / "test_data" / "fhir_outputs"
+    shutil.rmtree(root, ignore_errors=True)
+    root.mkdir(parents=True)
+    return root
 
 
 def mock_state(
@@ -98,7 +104,7 @@ def mock_state(
     return directory, record
 
 
-def test_fhir_output():
+def test_fhir_output(tmp_root):
     """Tests that output file matches the input file with the only difference being the tags"""
     fin = [
         json.loads(line)
@@ -110,7 +116,7 @@ def test_fhir_output():
         for line in pathlib.Path(SRC).read_bytes().splitlines()
         if line.strip()
     ]
-    tag_fhir_resources_with_authz(IN, OUT, CONFIG_SRC, BATCH_SIZE, TMP_ROOT, 8, )
+    tag_fhir_resources_with_authz(IN, OUT, CONFIG_SRC, BATCH_SIZE, tmp_root, 8)
     out = [
         json.loads(line)
         for line in pathlib.Path(OUT).read_bytes().splitlines()
@@ -130,10 +136,10 @@ def test_fhir_output():
     assert src == out, "Output file does not match source file"
 
 
-def test_chunking():
+def test_chunking(tmp_root):
     """Tests that number of chunks is correct and the recombined chunks match the input file"""
-    split_file(IN, BATCH_SIZE, TMP_ROOT)
-    chunks = list(TMP_ROOT.glob("*.chunk"))
+    split_file(IN, BATCH_SIZE, tmp_root)
+    chunks = list(tmp_root.glob("*.chunk"))
     fin = [
         json.loads(line)
         for line in pathlib.Path(IN).read_bytes().splitlines()
@@ -155,13 +161,13 @@ def test_chunking():
     ), "Recombined chunks do not match the content of the input file"
 
 
-def test_transform():
+def test_transform(tmp_root):
     """Asserts transform_chunk creates the same number of .done files as .chunk and no .chunk files remain once transformation is completed"""
     TAGGER.relevant_authz_rules(os.path.basename(IN).split(".")[0])
-    chunks = list(TMP_ROOT.glob("*.chunk"))
+    chunks = list(tmp_root.glob("*.chunk"))
     for c in chunks:
-        transform_chunk(c, TAGGER, TMP_ROOT)
-    transformed = list(TMP_ROOT.glob("*.done"))
+        transform_chunk(c, TAGGER, tmp_root)
+    transformed = list(tmp_root.glob("*.done"))
 
     # same number of transformed files as chunk files
     assert len(transformed) == len(
@@ -169,15 +175,15 @@ def test_transform():
     ), f"Expected same number of transformed .done files as number of .chunk files after transformation completed, found {len(transformed)}"
     # all .chunk files deleted after transformation completed
     assert (
-        len(list(TMP_ROOT.glob("*.chunk"))) == 0
-    ), f"Expected 0 chunks after transformation completed, found {len(list(TMP_ROOT.glob("*.chunk")))}"
+        len(list(tmp_root.glob("*.chunk"))) == 0
+    ), f"Expected 0 chunks after transformation completed, found {len(list(tmp_root.glob("*.chunk")))}"
 
 
-def test_merge():
+def test_merge(tmp_root):
     """Asserts that after merge is completed, the output file exists and is not empty, there are no .done files remaining,
     the length of the output matches the sum of the transformed files and the input file, and the file is not corrupt/formatting is correct
     """
-    transformed = list(TMP_ROOT.glob("*.done"))
+    transformed = list(tmp_root.glob("*.done"))
     transformed_sum = sum(
         len([l for l in pathlib.Path(c).read_bytes().splitlines() if l.strip()])
         for c in transformed
@@ -201,8 +207,8 @@ def test_merge():
     assert pathlib.Path(OUT).stat().st_size > 0, "Output file empty"
     # no leftover .done files after merge completed
     assert (
-        len(list(TMP_ROOT.glob("*.done"))) == 0
-    ), f"Expected 0 .done files after transformation completed, found {len(list(TMP_ROOT.glob("*.done")))}"
+        len(list(tmp_root.glob("*.done"))) == 0
+    ), f"Expected 0 .done files after transformation completed, found {len(list(tmp_root.glob("*.done")))}"
     # output file is the same length as the combined transformed files and the length of the input file
     assert (
         len(fout) == transformed_sum == len(fin)
@@ -218,11 +224,12 @@ def test_merge():
 class Test_is_new:
     """Tests the logic of the run/directory being marked as new (_is_new(directory, record) returns True)"""
 
-    tmp_path = TMP_ROOT / "test_new"
+    def __init__(self,tmp_root):
+        self.tmp_path = tmp_root / "test_new"
 
-    def test_is_new_with_missing_directory(self):
+    def test_is_new_with_missing_directory(self, tmp_root):
         # directory missing
-        assert _is_new(TMP_ROOT / "does_not_exist", BASE_RECORD) is True
+        assert _is_new(tmp_root/ "does_not_exist", BASE_RECORD) is True
 
     def test_is_new_directory_has_no_config_file(self):
         # no config file
@@ -268,7 +275,8 @@ class Test_is_new:
 class Test_is_done:
     """Tests the logic of the run/directory being marked as done (_is_done(directory, record) returns True)"""
 
-    tmp_path = TMP_ROOT / "test_done"
+    def __init__(self,tmp_root):
+        self.tmp_path = tmp_root / "test_done"
 
     def test_is_done_with_matching_config_and_empty_output(self):
         # config matches but output is empty
@@ -322,8 +330,8 @@ class Test_is_done:
 
 class Test_resume_run:
     """Tests the logic of the run/directory being marked as need to resume run (_resume_run(directory, record) returns True)"""
-
-    tmp_path = TMP_ROOT / "test_resume"
+    def __init__(self,tmp_root):
+        self.tmp_path = tmp_root / "test_resume"
 
     def test_resume_run_with_no_chunk_files(self):
         # no chunk files in directory
@@ -352,9 +360,9 @@ class Test_resume_run:
         )
         assert _resume_run(directory, record) is True
 
-    def test_resume_run_when_directory_missing(self):
+    def test_resume_run_when_directory_missing(self, tmp_root):
         # directory is missing
-        assert _resume_run(TMP_ROOT / "gone", BASE_RECORD) is False
+        assert _resume_run(tmp_root / "gone", BASE_RECORD) is False
 
     def test_resume_run_ignores_similarly_named_files(self):
         # ignored similarly named files
@@ -373,8 +381,8 @@ class Test_resume_run:
 
 class Test_merge_needed:
     """Tests the logic of the run/directory being marked as merge needed (_merge_needed(directory, record) returns True)"""
-
-    tmp_path = TMP_ROOT / "outputs" / "test_merge"
+    def __init__(self,tmp_root):
+        self.tmp_path = tmp_root / "outputs" / "test_merge"
 
     def test_merge_needed_when_no_done_files_remaining(self):
         # no merge on clean directory
@@ -399,15 +407,15 @@ class Test_merge_needed:
         )
         assert _merge_needed(directory, record) is False
 
-    def test_merge_needed_when_directory_missing(self):
+    def test_merge_needed_when_directory_missing(self, tmp_root):
         # no merge when directory missing
-        assert _merge_needed(TMP_ROOT / "gone", BASE_RECORD) is False
+        assert _merge_needed(tmp_root / "gone", BASE_RECORD) is False
 
 
 class Test_status:
     """Tests for overlap in different statuses"""
-
-    tmp_path = TMP_ROOT / "test_status"
+    def __init__(self,tmp_root):
+        self.tmp_path = tmp_root / "test_status"
 
     def test_fresh_directory(self):
         # fresh directory
@@ -443,10 +451,10 @@ class Test_status:
     @pytest.mark.parametrize(
         "state", ["match", None, {"config_hash": "x"}, {"batch_size": 1}]
     )
-    def test_new_and_done_are_mutually_exclusive(self, state):
+    def test_new_and_done_are_mutually_exclusive(self, state, tmp_root):
         # new and done are mutually exclusive
         directory, record = mock_state(
-            TMP_ROOT / str(id(state)), config=state, output="full"
+            tmp_root / str(id(state)), config=state, output="full"
         )
         assert not (_is_new(directory, record) and _is_done(directory, record))
 
@@ -488,9 +496,9 @@ def test_cli():
 
 
 @pytest.mark.parametrize("bad", [0, -1, None, "bad"])
-def test_invalid_batch_size_is_rejected(bad):
+def test_invalid_batch_size_is_rejected(bad, tmp_root):
     """Assert invalid batch_size is rejected and raises an error"""
-    out = TMP_ROOT / "cli_test" / "cli_out.ndjson"
+    out = tmp_root / "cli_test" / "cli_out.ndjson"
 
     args = [
         IN,
@@ -512,9 +520,9 @@ def test_invalid_batch_size_is_rejected(bad):
     ).exists(), "Rejected the argument but still wrote output"
 
 
-def test_missing_input_file_fails_cleanly():
+def test_missing_input_file_fails_cleanly(tmp_root):
     """Asserts error is raised if missing input file passed as argument"""
-    out = TMP_ROOT / "cli_test" / "nope.ndjson"
+    out = tmp_root / "cli_test" / "nope.ndjson"
     args = [
         "nope.ndjson",
         out,
@@ -535,9 +543,9 @@ def test_missing_input_file_fails_cleanly():
     ).exists(), "Output file written even though invalid input file passed"
 
 
-def test_output_directory_does_not_exist():
+def test_output_directory_does_not_exist(tmp_root):
     """Test response if output directory doesn't exists. Directory (and parents) should be created if missing"""
-    out = TMP_ROOT / "missing_dir" / "out.ndjson"
+    out = tmp_root / "missing_dir" / "out.ndjson"
     args = [
         IN,
         out,
@@ -554,3 +562,34 @@ def test_output_directory_does_not_exist():
 
     assert result.returncode == 0, "Raises error instead of creating output directory"
     assert pathlib.Path(out).exists(), "Process not completed, output file not written"
+
+
+def test_global_config_overrides_other_rules(tmp_root):
+    """Assert global authorization overrides any other rules"""
+    out = tmp_root / "global_config" / "out.ndjson"
+    args = [
+        IN,
+        out,
+        GLOBAL_CONFIG_SRC,
+        "--batch_size",
+        str(BATCH_SIZE),
+    ]
+    result = subprocess.run(
+        ["gen3", "fhir", "transform", *args],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, "Run fails"
+    assert pathlib.Path(out).exists(), "Process not completed, output file not written"
+    tagged_file = [
+        json.loads(line)
+        for line in pathlib.Path(out).read_bytes().splitlines()
+        if line.strip()
+    ]
+    with open(GLOBAL_CONFIG_SRC, "r") as f:
+        config = yaml.safe_load(f)
+
+    for rec in tagged_file:
+        security = (rec.get("meta")).get("security")[0].get("code")
+        assert security == config["global_authz"], "File not tagged with global authorization"
