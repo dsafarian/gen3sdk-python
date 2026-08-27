@@ -442,14 +442,14 @@ def tag_fhir_resources_with_authz(
     working_dir = resolve_work_dir(work_dir)
 
     # make temp directories
-    hash = get_md5hash(input_file)
+    hash = get_sha256hash(input_file)
     output_dir = f"{working_dir}/{os.path.basename(input_file).split('.')[0]}_{hash}"
 
     record = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "input_file": input_file,
         "output_file": output_file,
-        "config_hash": get_md5hash(config),
+        "config_hash": get_sha256hash(config),
         "batch_size": batch_size,
     }
 
