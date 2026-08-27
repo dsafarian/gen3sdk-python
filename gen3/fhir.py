@@ -242,23 +242,6 @@ def _is_done(directory: str | os.PathLike[str], record: dict) -> bool:
     return False
 
 
-def _resume_run(directory: str | os.PathLike[str], record: dict) -> bool:
-    """
-    Check if transformation needs to be resumed. Returns True if there are chunk files remaining in the directory.
-
-    Args:
-        directory (str): path of the directory linked to the .ndjson file
-        record (dict): the configuration of the current run, used to compare to what is already saved in the folder
-
-    Returns:
-        status (bool): returns whether the transformation needs to be resumed
-    """
-    # check for .chunk files --> tagging incomplete
-    if any(pathlib.Path(directory).glob("*.chunk")):
-        return True
-    return False
-
-
 def _merge_needed(directory: str | os.PathLike[str], record: dict) -> bool:
     """
     Check if .done files have been merged to the final output file. Returns True if .done files remaining in the directory.

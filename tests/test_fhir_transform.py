@@ -4,7 +4,6 @@ from gen3.fhir import (
     Gen3FHIRAuthzTagger,
     _is_new,
     _is_done,
-    _resume_run,
     _merge_needed,
     split_file,
     transform_chunk,
@@ -328,56 +327,6 @@ class Test_is_done:
         assert _is_done(directory, record) is True
 
 
-class Test_resume_run:
-    """Tests the logic of the run/directory being marked as need to resume run (_resume_run(directory, record) returns True)"""
-    def __init__(self,tmp_root):
-        self.tmp_path = tmp_root / "test_resume"
-
-    def test_resume_run_with_no_chunk_files(self):
-        # no chunk files in directory
-        directory, record = mock_state(self.tmp_path, chunks=0)
-        assert _resume_run(directory, record) is False
-
-    @pytest.mark.parametrize("chunk_files", [4, 20, 57, 100])
-    def test_resume_run_with_leftover_chunk_files(self, chunk_files):
-        # leftover chunks
-        directory, record = mock_state(self.tmp_path, chunks=chunk_files)
-        assert _resume_run(directory, record) is True
-
-    @pytest.mark.parametrize("done_files", [0, 20, 57, 100])
-    def test_resume_run_with_leftover_done_files_and_no_chunk_files(self, done_files):
-        # no chunks but .done remaining
-        directory, record = mock_state(self.tmp_path, chunks=0, done=done_files)
-        assert _resume_run(directory, record) is False
-
-    @pytest.mark.parametrize(["chunk_files", "done_files"], [(5, 10), (12, 5), (7, 7)])
-    def test_resume_run_with_leftover_done_files_and_chunk_files(
-        self, chunk_files, done_files
-    ):
-        # both .chunk and .done remaining
-        directory, record = mock_state(
-            self.tmp_path, chunks=chunk_files, done=done_files
-        )
-        assert _resume_run(directory, record) is True
-
-    def test_resume_run_when_directory_missing(self, tmp_root):
-        # directory is missing
-        assert _resume_run(tmp_root / "gone", BASE_RECORD) is False
-
-    def test_resume_run_ignores_similarly_named_files(self):
-        # ignored similarly named files
-        directory, record = mock_state(self.tmp_path)
-        (directory / "chunk").write_text("", encoding="utf-8")
-        (directory / "notes.chunk.csv").write_text("", encoding="utf-8")
-        assert _resume_run(directory, record) is False
-
-    def test_resume_run_is_nonrecursive(self):
-        # non recursive
-        directory, record = mock_state(self.tmp_path)
-        (directory / "nested").mkdir()
-        (directory / "nested" / "a.chunk").write_text("", encoding="utf-8")
-        assert _resume_run(directory, record) is False
-
 
 class Test_merge_needed:
     """Tests the logic of the run/directory being marked as merge needed (_merge_needed(directory, record) returns True)"""
@@ -422,29 +371,30 @@ class Test_status:
         directory, record = mock_state(self.tmp_path, config=None)
         assert _is_new(directory, record) is True
         assert _is_done(directory, record) is False
-        assert _resume_run(directory, record) is False
         assert _merge_needed(directory, record) is False
 
-    def test_need_to_resume_overlap(self):
-        # need to resume
-        directory, record = mock_state(self.tmp_path, config="match", chunks=2, done=3)
+    @pytest.mark.parametrize(
+            ["chunk_files", "done_files"], [(5, 2), (5, 5), (5, 7), (1, 10)]
+        )
+    def test_need_to_resume_overlap(self, chunk_files, done_files):
+        directory, record = mock_state(self.tmp_path, config="match", chunks=chunk_files, done=done_files)
         assert _is_new(directory, record) is False
         assert _is_done(directory, record) is False
-        assert _resume_run(directory, record) is True
 
+    @pytest.mark.parametrize(
+            "chunks", ["match", None, {"config_hash": "x"}, {"batch_size": 1}]
+        )
     def test_merge_needed_overlap(self):
         # merge needed
         directory, record = mock_state(self.tmp_path, config="match", chunks=0, done=5)
         assert _is_new(directory, record) is False
         assert _is_done(directory, record) is False
-        assert _resume_run(directory, record) is False
         assert _merge_needed(directory, record) is True
 
     def test_run_complete(self):
         # fully complete
         directory, record = mock_state(self.tmp_path, config="match", output="full")
         assert _is_done(directory, record) is True
-        assert _resume_run(directory, record) is False
         assert _merge_needed(directory, record) is False
         assert _is_new(directory, record) is False
 
