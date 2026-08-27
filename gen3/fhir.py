@@ -266,6 +266,9 @@ def _is_new(directory: str | os.PathLike[str], record: dict) -> bool:
     ):
         return True
 
+    if not pathlib.Path(record["output_file"]).is_file() or pathlib.Path(record["output_file"]).stat().st_size == 0:
+        return True
+    
     return False
 
 
