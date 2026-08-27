@@ -24,9 +24,10 @@ rules:
    condition: "Patient.managingOrganization.reference = 'Organization/site-alpha'"
    authz: "/programs/Alpha/projects/Main"
 
+#Example with multiple conditions
  - resource_type: "Specimen"
    condition: ""Specimen.status = 'available' and Specimen.Type = 'Blood specimen (specimen)'""
    authz: "/programs/Alpha/projects/Biobank"
 ```
 
-And example config.yaml file can be found in [Config reference](tests/test_data/fhir_config.yaml)
+And example config.yaml file can be found in [fhir_config.yaml](tests/test_data/fhir_config.yaml)

@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 import shutil
 import pathlib
 import hashlib
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from cdislogging import get_logger
 from gen3.utils import make_folders_for_filename
 from collections.abc import Callable
@@ -372,8 +371,8 @@ def transform_chunk(
             out += json_dumps(tagger.tag_resource(record, authz_tags))
             out += b"\n"
         fout.write(out)
-        # delete chunk file once it has been transformed
-        os.remove(input_file)
+    # delete chunk file once it has been transformed
+    os.remove(input_file)
 
 
 def merge_chunks(
@@ -411,13 +410,13 @@ def tag_fhir_resources_with_authz(
     config: str | os.PathLike[str],
     batch_size: int = 10000,
     work_dir: str | os.PathLike[str] = DEFAULT_WORK_DIR,
-    workers: int = 8,
+    #workers: int = 8,
     force: bool = False,
 ):
     """
 
     Stream-transform Bulk FHIR data to Gen3 compatible data with authorization tagging.
-    Parallelized line by line tagging with batched I/O
+    Line by line tagging with batched I/O
 
     Args:
             input_file (str): Input .ndjson file
@@ -425,15 +424,15 @@ def tag_fhir_resources_with_authz(
             config (str): .yaml file with authorization rules
             batch_size (int): number of lines per chunk
             work_dir (str): static work directory where all run directories are stored
-            workers (int): number of parallel processes
+            ###workers (int): number of parallel processes
             force (bool): remove all intermediate files for this run before exiting even if it crashes
     """
-
+            
     start_time = time.time()
     if batch_size < 1:
         raise ValueError(f"batch_size must be >= 1, got {batch_size}")
-    if workers < 1:
-        raise ValueError(f"workers must be >= 1, got {workers}, default is 8")
+    # if workers < 1:
+    #     raise ValueError(f"workers must be >= 1, got {workers}, default is 8")
     # check if input and output file are the same
     if os.path.realpath(input_file) == os.path.realpath(output_file):
         raise click.UsageError("input_file and output_file must be different")
@@ -488,11 +487,15 @@ def tag_fhir_resources_with_authz(
             # parallelize transform
             logging.info("Transforming chunks...")
             start = time.time()
-            with ThreadPoolExecutor(max_workers=workers) as pool:
-                for _ in pool.map(
-                    transform_chunk, chunk_files, repeat(tagger), repeat(output_dir)
-                ):
-                    pass
+            ### FUTURE implement multiprocessing
+            # with ProcessPoolExecutor(max_workers=workers) as pool:
+            #     for _ in pool.map(
+            #         transform_chunk, chunk_files, repeat(tagger), repeat(output_dir)
+            #     ):
+            #         pass
+            for chunk in chunk_files:
+                transform_chunk(chunk, tagger, output_dir)
+
             logging.info(
                 f"Transform chunks total time: {(time.strftime('%H:%M:%S', time.gmtime(time.time() - start)))}"
             )

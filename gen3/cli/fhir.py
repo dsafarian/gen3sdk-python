@@ -52,15 +52,15 @@ def fhir():
     metavar="batch_size",
     help="batch size for chunking",
 )
-@click.option(
-    "-w",
-    "--workers",
-    type=click.IntRange(min=1),
-    default=8,
-    show_default=True,
-    metavar="workers",
-    help="number of parallel processes",
-)
+# @click.option(
+#     "-w",
+#     "--workers",
+#     type=click.IntRange(min=1),
+#     default=8,
+#     show_default=True,
+#     metavar="workers",
+#     help="number of parallel processes",
+# )
 @click.option(
     "--force",
     is_flag=True,
@@ -70,7 +70,7 @@ def cli(
     input_file: str | os.PathLike[str],
     output_file: str | os.PathLike[str],
     config: str | os.PathLike[str],
-    workers: int,
+    #workers: int,
     work_dir: str | os.PathLike[str]| None, 
     batch_size: int,
     force: bool,
@@ -84,10 +84,10 @@ def cli(
         config (str): .yaml file with authorization rules
         work_dir (str): Working directory to save intermediate files for each run
         batch_size (int): number of lines per chunk
-        workers (int): number of parallel processes
+        ###workers (int): number of parallel processes
         force (bool): remove all intermediate files for this run before exiting even if it crashes
     """
-    tag_fhir_resources_with_authz(input_file=input_file, output_file=output_file, config=config, batch_size=batch_size, work_dir=work_dir, workers=workers, force=force)
+    tag_fhir_resources_with_authz(input_file=input_file, output_file=output_file, config=config, batch_size=batch_size, work_dir=work_dir, force=force)
 
 
 @click.command(
