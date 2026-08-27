@@ -1,7 +1,8 @@
 import yaml
-from itertools import islice, repeat
+from itertools import islice
 import json
-from fhirpathpy import evaluate
+from fhirpathpy import compile
+from fhirpathpy.models import models
 import click
 import os, glob
 import time
@@ -34,6 +35,7 @@ class Gen3FHIRAuthzTagger:
         self,
         config_path: str | os.PathLike[str],
         custom_hook: Callable[[dict], dict] | None = None,
+        fhir_version: str = "r4",
     ):
         """
         Initialize instance of the tagger.
@@ -41,11 +43,13 @@ class Gen3FHIRAuthzTagger:
         Args:
             config_path (str): the name/path of the config.yaml file
             custom_hook (Callable): used for authorization instead of the configuration if called
+            fhir_version (str): FHIR model version
         """
 
         with open(config_path, "r") as f:
             self.config = yaml.safe_load(f)
         self.custom_hook = custom_hook
+        self.model = models[fhir_version]
 
     def relevant_authz_rules(self, resource_type: str):
         """
@@ -55,11 +59,25 @@ class Gen3FHIRAuthzTagger:
             resource_type (str): the resource type in the .ndjson file
 
         """
-        resource_rules = []
+        self.rules = [] 
         for rule in self.config.get("rules", []):
-            if rule["resource_type"] == resource_type:
-                resource_rules.append(rule)
-        self.rules = resource_rules
+            if rule['resource_type'] != resource_type:
+                continue
+            try:
+                match = compile(rule["condition"], model=self.model)
+                match({"resourceType": resource_type})  
+            except Exception as e:
+                raise ValueError(
+                    f"invalid FHIRPath for authz {rule.get('authz')!r}: "
+                    f"{rule['condition']!r}: {e}"
+                ) from e
+            self.rules.append({**rule, "match": match})
+ 
+        if not self.rules:
+            raise ValueError(
+                f"no authz rules configured for resource type {resource_type!r}"
+            )
+            
 
     def determine_authz(self, resource: dict) -> str:
         """
@@ -79,16 +97,16 @@ class Gen3FHIRAuthzTagger:
             if hook_result:
                 return hook_result
 
-        # check global catch-all fallback
+        # check global catch-all override
         if "global_authz" in self.config:
             return self.config["global_authz"]
 
         matches = []
-        for rule in self.rules:
-            match = evaluate(resource, rule["condition"])
-            
-            if match and match[0] is True:
-                matches.append(rule)
+        matches = [
+            rule
+            for rule in self.rules
+            if (result := rule["match"](resource)) and result[0] is True
+        ]
 
         if len(matches) > 1:
             raise ValueError(
