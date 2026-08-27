@@ -495,12 +495,15 @@ def tag_fhir_resources_with_authz(
         logging.info(
             f"Total time to process: {(time.strftime('%H:%M:%S', time.gmtime(elapsed_time)))}"
         )
+
         if force:
             shutil.rmtree(output_dir, ignore_errors=True)
 
-    except BaseException as e:
+    except Exception as e:
         logging.error(e)
         if force:
             shutil.rmtree(output_dir, ignore_errors=True)
         else:
             logging.error("run failed; intermediates left in %s", output_dir)
+        raise 
+
