@@ -143,7 +143,8 @@ def resolve_work_dir(work_dir: str | os.PathLike[str] | None = None, clean: bool
 
     # 0o700 makes it only only readable by owner and not everyone else (which is important 
     # for potentially shared machines and potential FHIR PHI)
-    root.chmod(0o700)
+    if root.is_dir():
+        root.chmod(0o700)
 
     return root
 
@@ -158,19 +159,19 @@ def json_dumps(obj, default=None) -> bytes:
     ).encode("utf-8")
 
 
-def get_md5hash(input_file: str | os.PathLike[str]) -> str:
+def get_sha256hash(input_file: str | os.PathLike[str]) -> str:
     """
-    Returns the md5 hash of the input .ndjson file to create a unique folder per file
+    Returns the SHA-256 hash of the input .ndjson file to create a unique folder per file
 
     Args:
         input_file (str): Input ndjson file to transform
 
     Returns:
-        digest (str): md5 hash of the input .ndjson file
+        digest (str): SHA-256 hash of the input .ndjson file
 
     """
     with open(input_file, "rb") as f:
-        digest = hashlib.file_digest(f, "md5").hexdigest()
+        digest = hashlib.file_digest(f, "sha256").hexdigest()
     return digest
 
 

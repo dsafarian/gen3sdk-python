@@ -189,7 +189,7 @@ def test_merge():
         for line in pathlib.Path(IN).read_bytes().splitlines()
         if line.strip()
     ]
-    fout = fin = [
+    fout = [
         json.loads(line)
         for line in pathlib.Path(OUT).read_bytes().splitlines()
         if line.strip()
@@ -467,6 +467,7 @@ def test_cli():
         timeout=60,
     )
 
+    assert result.returncode == 0, "CLI run failed"
     assert pathlib.Path(OUT).exists(), "CLI exited 0 but wrote no output file"
     records = [
         json.loads(line)

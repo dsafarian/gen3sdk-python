@@ -71,7 +71,7 @@ def cli(
     output_file: str | os.PathLike[str],
     config: str | os.PathLike[str],
     workers: int,
-    work_dir: str | os.PathLike[str], 
+    work_dir: str | os.PathLike[str]| None, 
     batch_size: int,
     force: bool,
 ):
@@ -87,7 +87,7 @@ def cli(
         workers (int): number of parallel processes
         force (bool): remove all intermediate files for this run before exiting even if it crashes
     """
-    tag_fhir_resources_with_authz(input_file, output_file, config, batch_size, work_dir, workers, force)
+    tag_fhir_resources_with_authz(input_file=input_file, output_file=output_file, config=config, batch_size=batch_size, work_dir=work_dir, workers=workers, force=force)
 
 
 @click.command(
@@ -103,7 +103,7 @@ def cli(
 @click.option(
     "--dry-run",
     is_flag=True,
-    help="Used with --cleanup, report what would be deleted with --cleanup without deleting the files",
+    help="Report what would be deleted with --cleanup without deleting the files",
 )
 @click.option(
     "--force",
@@ -120,7 +120,7 @@ def cleanup(work_dir, dry_run: bool, force: bool):
         force (bool): Delete all intermediate directories disregarding the status
     """
 
-    cleanup_fhir_transform_artifacts(work_dir,dry_run=dry_run, force=force)
+    cleanup_fhir_transform_artifacts(work_dir=work_dir, dry_run=dry_run, force=force)
 
 
 fhir.add_command(cli, name="transform")
