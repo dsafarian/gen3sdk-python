@@ -452,6 +452,76 @@ def merge_chunks(
     for f in input_files:
         os.remove(f)
 
+def tag_fhir_resource_pipeline(
+    input_file: str | os.PathLike[str],
+    output_file: str | os.PathLike[str],
+    config: str | os.PathLike[str],
+    output_dir: str | os.PathLike[str],
+    record: dict,
+    batch_size: int = 10000,
+):
+    """
+
+    Stream-transform Bulk FHIR data to Gen3 compatible data with authorization tagging.
+    Line by line tagging with batched I/O
+
+    Args:
+            input_file (str): Input .ndjson file
+            output_file (str): Output file name
+            config (str): .yaml file with authorization rules
+            batch_size (int): number of lines per chunk
+            output_dir (str): static work directory where all run directories are stored
+            record (dict): the record/information for the current run (.config.json)
+    """
+    logging.info("Checking status of file")
+    
+    # if done, skip
+    if _is_done(output_dir, record):
+        return
+
+    # if new file or new config/batch_size, reset folder
+    if _is_new(output_dir, record):
+        logging.info("New folder, creating directory and chunking")
+        if pathlib.Path(output_dir).exists():
+            shutil.rmtree(output_dir)
+        make_folders_for_filename(f"{output_dir}/.config.json")
+        pathlib.Path(f"{output_dir}/.config.json").write_text(
+            json.dumps(record, default=str), encoding="utf-8"
+        )
+        # split into chunks
+        logging.info(f"Chunking {input_file} into {batch_size}-sized batches...")
+        split_file(input_file, batch_size, output_dir)
+
+    # initialize tagger
+    tagger = Gen3FHIRAuthzTagger(config_path=config)
+    # keep only relevant rules for the resource type
+    resource_type = get_resource_type(input_file)
+    tagger.relevant_authz_rules(resource_type)
+
+    # if not fully transformed or new/reset, resume
+    if not _merge_needed(output_dir, record):
+        # paths for chunk files
+        chunk_files = glob.glob(
+            os.path.join(output_dir, f"{pathlib.Path(input_file).stem}_*.chunk")
+        )
+
+        # parallelize transform
+        logging.info("Transforming chunks...")
+        start = time.time()
+
+        for chunk in chunk_files:
+            transform_chunk(chunk, tagger, output_dir)
+
+        logging.info(
+            f"Transform chunks total time: {(time.strftime('%H:%M:%S', time.gmtime(time.time() - start)))}"
+        )
+
+    # merge back to one ndjson file
+    transformed_files = glob.glob(
+        os.path.join(output_dir, f"{pathlib.Path(input_file).stem}_*.done")
+    )
+    logging.info(f"Merging chunks to {output_file}...")
+    merge_chunks(transformed_files, output_file)
 
 def tag_fhir_resources_with_authz(
     input_file: str | os.PathLike[str],
@@ -462,9 +532,8 @@ def tag_fhir_resources_with_authz(
     force: bool = False,
 ):
     """
-
+    End-to-end pipeline for FHIR resource tagging.
     Stream-transform Bulk FHIR data to Gen3 compatible data with authorization tagging.
-    Line by line tagging with batched I/O
 
     Args:
             input_file (str): Input .ndjson file
@@ -502,62 +571,11 @@ def tag_fhir_resources_with_authz(
     }
 
     try:
-        logging.info("Checking status of file")
-
-        # if done, skip
-        if _is_done(output_dir, record):
-            return
-
-        # if new file or new config/batch_size, reset folder
-        if _is_new(output_dir, record):
-            logging.info("New folder, creating directory and chunking")
-            if pathlib.Path(output_dir).exists():
-                shutil.rmtree(output_dir)
-            make_folders_for_filename(f"{output_dir}/.config.json")
-            pathlib.Path(f"{output_dir}/.config.json").write_text(
-                json.dumps(record, default=str), encoding="utf-8"
-            )
-            # split into chunks
-            logging.info(f"Chunking {input_file} into {batch_size}-sized batches...")
-            split_file(input_file, batch_size, output_dir)
-
-        # initialize tagger
-        tagger = Gen3FHIRAuthzTagger(config_path=config)
-        # keep only relevant rules for the resource type
-        resource_type = get_resource_type(input_file)
-        tagger.relevant_authz_rules(resource_type)
-
-        # if not fully transformed or new/reset, resume
-        if not _merge_needed(output_dir, record):
-            # paths for chunk files
-            chunk_files = glob.glob(
-                os.path.join(output_dir, f"{pathlib.Path(input_file).stem}_*.chunk")
-            )
-
-            # parallelize transform
-            logging.info("Transforming chunks...")
-            start = time.time()
-    
-            for chunk in chunk_files:
-                transform_chunk(chunk, tagger, output_dir)
-
-            logging.info(
-                f"Transform chunks total time: {(time.strftime('%H:%M:%S', time.gmtime(time.time() - start)))}"
-            )
-
-        # merge back to one ndjson file
-        transformed_files = glob.glob(
-            os.path.join(output_dir, f"{pathlib.Path(input_file).stem}_*.done")
-        )
-        logging.info(f"Merging chunks to {output_file}...")
-        merge_chunks(transformed_files, output_file)
-
+        tag_fhir_resource_pipeline(input_file = input_file, output_file = output_file, config = config, output_dir = output_dir, record = record, batch_size=batch_size)
         elapsed_time = time.time() - start_time
         logging.info(f"Tagged file -> {output_file}")
         logging.info(
-            f"Total time to process: {(time.strftime('%H:%M:%S', time.gmtime(elapsed_time)))}"
-        )
-
+            f"Total time to process: {(time.strftime('%H:%M:%S', time.gmtime(elapsed_time)))}")
         if force:
             shutil.rmtree(output_dir, ignore_errors=True)
 
