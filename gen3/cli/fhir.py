@@ -6,6 +6,7 @@ from gen3.fhir import *
 
 logging = get_logger(__name__)
 
+
 @click.group()
 def fhir():
     """Commands for FHIR data processing"""
@@ -35,14 +36,12 @@ def fhir():
     type=click.Path(exists=True, dir_okay=False, readable=True),
     metavar="config",
 )
-
 @click.option(
     "--work_dir",
     type=click.Path(),
     metavar="work_dir",
     help=f"Specify which working directory to clean, if not specified the default ({DEFAULT_WORK_DIR}) will be cleaned. Can also be set as an environment variable: GEN3_FHIR_WORK_DIR",
 )
-
 @click.option(
     "-b",
     "--batch_size",
@@ -61,7 +60,7 @@ def cli(
     input_file: str | os.PathLike[str],
     output_file: str | os.PathLike[str],
     config: str | os.PathLike[str],
-    work_dir: str | os.PathLike[str]| None, 
+    work_dir: str | os.PathLike[str] | None,
     batch_size: int,
     force: bool,
 ):
@@ -76,7 +75,14 @@ def cli(
         batch_size (int): number of lines per chunk
         force (bool): remove all intermediate files for this run before exiting even if it crashes
     """
-    tag_fhir_resources_with_authz(input_file=input_file, output_file=output_file, config=config, batch_size=batch_size, work_dir=work_dir, force=force)
+    tag_fhir_resources_with_authz(
+        input_file=input_file,
+        output_file=output_file,
+        config=config,
+        batch_size=batch_size,
+        work_dir=work_dir,
+        force=force,
+    )
 
 
 @click.command(

@@ -59,25 +59,24 @@ class Gen3FHIRAuthzTagger:
             resource_type (str): the resource type in the .ndjson file
 
         """
-        self.rules = [] 
+        self.rules = []
         for rule in self.config.get("rules", []):
-            if rule['resource_type'] != resource_type:
+            if rule["resource_type"] != resource_type:
                 continue
             try:
                 match = compile(rule["condition"], model=self.model)
-                match({"resourceType": resource_type})  
+                match({"resourceType": resource_type})
             except Exception as e:
                 raise ValueError(
                     f"invalid FHIRPath for authz {rule.get('authz')!r}: "
                     f"{rule['condition']!r}: {e}"
                 ) from e
             self.rules.append({**rule, "match": match})
- 
+
         if not self.rules:
             raise ValueError(
                 f"no authz rules configured for resource type {resource_type!r}"
             )
-            
 
     def determine_authz(self, resource: dict) -> str:
         """
@@ -150,20 +149,24 @@ class Gen3FHIRAuthzTagger:
 
         return resource
 
-def resolve_work_dir(work_dir: str | os.PathLike[str] | None = None, clean: bool = False) -> pathlib.Path:
+
+def resolve_work_dir(
+    work_dir: str | os.PathLike[str] | None = None, clean: bool = False
+) -> pathlib.Path:
     root = pathlib.Path(
         work_dir or os.environ.get("GEN3_FHIR_WORK_DIR") or DEFAULT_WORK_DIR
     ).expanduser()
-   
+
     if not clean:
         root.mkdir(parents=True, exist_ok=True)
 
-    # 0o700 makes it only only readable by owner and not everyone else (which is important 
+    # 0o700 makes it only only readable by owner and not everyone else (which is important
     # for potentially shared machines and potential FHIR PHI)
     if root.is_dir():
         root.chmod(0o700)
 
     return root
+
 
 def json_dumps(obj, default=None) -> bytes:
     """Compact UTF-8 JSON bytes."""
@@ -191,28 +194,29 @@ def get_sha256hash(input_file: str | os.PathLike[str]) -> str:
         digest = hashlib.file_digest(f, "sha256").hexdigest()
     return digest
 
+
 def get_resource_type(input_file, sample=5):
     """
     Check resource type within the input .ndjson file by reading the first few and last few lines
-    
+
     Args:
         input_file(str): Input ndjson file to be transformed
         sample(int): number of lines to read
-    
+
     Returns:
         resource_type(str): Resource type contained within the ndjson (one per file)
-    
+
     """
 
     path = pathlib.Path(input_file)
     size = path.stat().st_size
-    
+
     with path.open("rb") as f:
         head = list(islice((ln for ln in f if ln.strip()), sample))
         if not head:
             raise ValueError(f"{path}: file has no records")
 
-        #calculate approximate offset from end of file, guards from concatnated files with different resource types
+        # calculate approximate offset from end of file, guards from concatnated files with different resource types
         f.seek(max(0, size - max(len(ln) for ln in head) * sample * 2))
         # drop [0]: a partial line mid-file, or a line the head already has
         tail = [ln for ln in f.read().split(b"\n")[1:] if ln.strip()][-sample:]
@@ -234,8 +238,10 @@ def get_resource_type(input_file, sample=5):
     if len(types) == 1:
         return types.pop()
     else:
-        raise ValueError(f"Expected 1 resource type per file, got {len(types)} types: {sorted(types)} in {input_file}.")
-    
+        raise ValueError(
+            f"Expected 1 resource type per file, got {len(types)} types: {sorted(types)} in {input_file}."
+        )
+
 
 def _is_new(directory: str | os.PathLike[str], record: dict) -> bool:
     """
@@ -250,7 +256,6 @@ def _is_new(directory: str | os.PathLike[str], record: dict) -> bool:
         status (bool): returns whether the directory is new/has to be reset or not
     """
 
-    
     if not pathlib.Path(directory).is_dir():
         return True
 
@@ -266,9 +271,12 @@ def _is_new(directory: str | os.PathLike[str], record: dict) -> bool:
     ):
         return True
 
-    if not pathlib.Path(record["output_file"]).is_file() or pathlib.Path(record["output_file"]).stat().st_size == 0:
+    if (
+        not pathlib.Path(record["output_file"]).is_file()
+        or pathlib.Path(record["output_file"]).stat().st_size == 0
+    ):
         return True
-    
+
     return False
 
 
@@ -328,7 +336,9 @@ def _merge_needed(directory: str | os.PathLike[str], record: dict) -> bool:
     return False
 
 
-def cleanup_fhir_transform_artifacts(work_dir, dry_run: bool = False, force: bool = False) -> int:
+def cleanup_fhir_transform_artifacts(
+    work_dir, dry_run: bool = False, force: bool = False
+) -> int:
     """
     Remove run dirs whose owning process is gone.
 
@@ -452,6 +462,7 @@ def merge_chunks(
     for f in input_files:
         os.remove(f)
 
+
 def tag_fhir_resource_pipeline(
     input_file: str | os.PathLike[str],
     output_file: str | os.PathLike[str],
@@ -474,7 +485,7 @@ def tag_fhir_resource_pipeline(
             record (dict): the record/information for the current run (.config.json)
     """
     logging.info("Checking status of file")
-    
+
     # if done, skip
     if _is_done(output_dir, record):
         return
@@ -523,6 +534,7 @@ def tag_fhir_resource_pipeline(
     logging.info(f"Merging chunks to {output_file}...")
     merge_chunks(transformed_files, output_file)
 
+
 def tag_fhir_resources_with_authz(
     input_file: str | os.PathLike[str],
     output_file: str | os.PathLike[str],
@@ -543,7 +555,7 @@ def tag_fhir_resources_with_authz(
             work_dir (str): static work directory where all run directories are stored
             force (bool): remove all intermediate files for this run before exiting even if it crashes
     """
-            
+
     start_time = time.time()
     if batch_size < 1:
         raise ValueError(f"batch_size must be >= 1, got {batch_size}")
@@ -551,10 +563,10 @@ def tag_fhir_resources_with_authz(
     if os.path.realpath(input_file) == os.path.realpath(output_file):
         raise click.UsageError("input_file and output_file must be different")
 
-    #check if input file is empty
+    # check if input file is empty
     if pathlib.Path(input_file).stat().st_size == 0:
-            raise ValueError(f"{input_file}: file is empty")
-    
+        raise ValueError(f"{input_file}: file is empty")
+
     # only necessary the first time its run
     working_dir = resolve_work_dir(work_dir)
 
@@ -571,16 +583,23 @@ def tag_fhir_resources_with_authz(
     }
 
     try:
-        tag_fhir_resource_pipeline(input_file = input_file, output_file = output_file, config = config, output_dir = output_dir, record = record, batch_size=batch_size)
+        tag_fhir_resource_pipeline(
+            input_file=input_file,
+            output_file=output_file,
+            config=config,
+            output_dir=output_dir,
+            record=record,
+            batch_size=batch_size,
+        )
         elapsed_time = time.time() - start_time
         logging.info(f"Tagged file -> {output_file}")
         logging.info(
-            f"Total time to process: {(time.strftime('%H:%M:%S', time.gmtime(elapsed_time)))}")
+            f"Total time to process: {(time.strftime('%H:%M:%S', time.gmtime(elapsed_time)))}"
+        )
         if force:
             shutil.rmtree(output_dir, ignore_errors=True)
 
     except Exception as e:
         logging.error(e)
         logging.error("Run failed; intermediates left in %s", output_dir)
-        raise 
-
+        raise

@@ -146,19 +146,24 @@ main.add_command(nih.nih)
 main.add_command(users.users)
 main.add_command(wrap.run)
 
-#optional fhir subcommand dependent on whether user installed FHIR extras
+# optional fhir subcommand dependent on whether user installed FHIR extras
 try:
-    import gen3.cli.fhir as fhir   
+    import gen3.cli.fhir as fhir
+
     main.add_command(fhir.fhir)
 except ImportError:
+
     @click.group(name="fhir")
     def fhir():
-        """Commands for FHIR data processing: transform & cleanup"""  
-        raise click.ClickException("Requires FHIR packages which aren't installed by default. Install the 'fhir' extras: poetry install --all-extras")
+        """Commands for FHIR data processing: transform & cleanup"""
+        raise click.ClickException(
+            "Requires FHIR packages which aren't installed by default. Install the 'fhir' extras: poetry install --all-extras"
+        )
 
-    @fhir.command(name="transform",
-    context_settings={"help_option_names": ["-h", "--help"]},
-    help="""Tag Bulk FHIR data with Gen3 compatible authorization tags.
+    @fhir.command(
+        name="transform",
+        context_settings={"help_option_names": ["-h", "--help"]},
+        help="""Tag Bulk FHIR data with Gen3 compatible authorization tags.
 
     \b 
     input_file (str): Input .ndjson file with Bulk FHIR data, MUST be one resource type per file
@@ -171,14 +176,16 @@ except ImportError:
         CLI implementation of tag_fhir_resources_with_authz.
         """
 
-    @fhir.command(name="cleanup",
-    context_settings={"help_option_names": ["-h", "--help"]},
-    help="Remove all intermediate files in the tmp folder from previous runs",
+    @fhir.command(
+        name="cleanup",
+        context_settings={"help_option_names": ["-h", "--help"]},
+        help="Remove all intermediate files in the tmp folder from previous runs",
     )
     def cleanup():
         """
         Remove all intermediate files in the tmp folder from previous runs
         """
+
     main.add_command(fhir)
-    
+
 main()

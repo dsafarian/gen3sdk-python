@@ -9,7 +9,7 @@ from gen3.fhir import (
     transform_chunk,
     merge_chunks,
     tag_fhir_resources_with_authz,
-    DEFAULT_WORK_DIR
+    DEFAULT_WORK_DIR,
 )
 import pathlib
 import os
@@ -18,13 +18,16 @@ import subprocess
 import shutil
 import yaml
 
-
 TMP_ROOT = pathlib.Path(__file__).parent / "test_data" / "fhir_outputs"
-SRC = pathlib.Path(f"{pathlib.Path(__file__).parent}/test_data/test_fhir_Patient.ndjson")
+SRC = pathlib.Path(
+    f"{pathlib.Path(__file__).parent}/test_data/test_fhir_Patient.ndjson"
+)
 IN = pathlib.Path(f"{pathlib.Path(__file__).parent}/test_data/Patient.ndjson")
 OUT = pathlib.Path(f"{TMP_ROOT}/fhir_output_Patient.ndjson")
 CONFIG_SRC = pathlib.Path(f"{pathlib.Path(__file__).parent}/test_data/fhir_config.yaml")
-GLOBAL_CONFIG_SRC = pathlib.Path(f"{pathlib.Path(__file__).parent}/test_data/fhir_global_config.yaml")
+GLOBAL_CONFIG_SRC = pathlib.Path(
+    f"{pathlib.Path(__file__).parent}/test_data/fhir_global_config.yaml"
+)
 TAGGER = Gen3FHIRAuthzTagger(CONFIG_SRC)
 BATCH_SIZE = 1
 BASE_RECORD = {
@@ -40,7 +43,6 @@ BASE_RECORD = {
 def tmp_root():
     shutil.rmtree(TMP_ROOT, ignore_errors=True)
     TMP_ROOT.mkdir(parents=True)
-  
 
 
 def mock_state(
@@ -227,7 +229,7 @@ class Test_is_new:
 
     def test_is_new_with_missing_directory(self):
         # directory missing
-        assert _is_new(TMP_ROOT/ "does_not_exist", BASE_RECORD) is True
+        assert _is_new(TMP_ROOT / "does_not_exist", BASE_RECORD) is True
 
     def test_is_new_directory_has_no_config_file(self):
         # no config file
@@ -326,9 +328,9 @@ class Test_is_done:
         assert _is_done(directory, record) is True
 
 
-
 class Test_merge_needed:
     """Tests the logic of the run/directory being marked as merge needed (_merge_needed(directory, record) returns True)"""
+
     def __init__(self):
         self.tmp_path = TMP_ROOT / "outputs" / "test_merge"
 
@@ -362,6 +364,7 @@ class Test_merge_needed:
 
 class Test_status:
     """Tests for overlap in different statuses"""
+
     def __init__(self):
         self.tmp_path = TMP_ROOT / "test_status"
 
@@ -373,16 +376,18 @@ class Test_status:
         assert _merge_needed(directory, record) is False
 
     @pytest.mark.parametrize(
-            ["chunk_files", "done_files"], [(5, 2), (5, 5), (5, 7), (1, 10)]
-        )
+        ["chunk_files", "done_files"], [(5, 2), (5, 5), (5, 7), (1, 10)]
+    )
     def test_need_to_resume_overlap(self, chunk_files, done_files):
-        directory, record = mock_state(self.tmp_path, config="match", chunks=chunk_files, done=done_files)
+        directory, record = mock_state(
+            self.tmp_path, config="match", chunks=chunk_files, done=done_files
+        )
         assert _is_new(directory, record) is False
         assert _is_done(directory, record) is False
 
     @pytest.mark.parametrize(
-            "chunks", ["match", None, {"config_hash": "x"}, {"batch_size": 1}]
-        )
+        "chunks", ["match", None, {"config_hash": "x"}, {"batch_size": 1}]
+    )
     def test_merge_needed_overlap(self):
         # merge needed
         directory, record = mock_state(self.tmp_path, config="match", chunks=0, done=5)
@@ -541,4 +546,6 @@ def test_global_config_overrides_other_rules():
 
     for rec in tagged_file:
         security = (rec.get("meta")).get("security")[0].get("code")
-        assert security == config["global_authz"], "File not tagged with global authorization"
+        assert (
+            security == config["global_authz"]
+        ), "File not tagged with global authorization"
