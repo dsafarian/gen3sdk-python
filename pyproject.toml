@@ -21,7 +21,6 @@ classifiers = [
 python = ">=3.9, <4"
 requests = "*"
 indexclient = ">=2.3.0"
-drsclient = ">=0.3.0"
 aiohttp = "*"
 backoff = "*"
 cdislogging = ">=1.1.0"
