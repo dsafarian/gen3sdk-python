@@ -1,6 +1,8 @@
 ## FHIR 
 
-This integration aims to enhance the data ingestion capabilities of Gen3 by integrating a Fast Healthcare Interoperability Resources (FHIR) data ingestion pipeline & tools.  FHIR is an important standard for working with Electronic Health Records (EHR) and we have started development of a Gen3 FHIR Proxy service.  The overall goal is to allow users to seamlessly ingest data into an existing FHIR server. Gen3 is working on adding support for FHIR and this tool will help with data preparation and interaction in the future. 
+This integration aims to enhance the data ingestion capabilities of Gen3 by integrating a Fast Healthcare Interoperability Resources (FHIR) data ingestion tools. FHIR is an important standard for working with Electronic Health Records (EHR) and we have started development of a Gen3 FHIR Proxy service. 
+
+Gen3 is working on adding support for FHIR and these tools will help with data preparation.
 
 
 The fhir commands can be invoked as follows
