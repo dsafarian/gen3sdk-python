@@ -160,32 +160,6 @@ except ImportError:
             "Requires FHIR packages which aren't installed by default. Install the 'fhir' extras: poetry install --all-extras"
         )
 
-    @fhir.command(
-        name="transform",
-        context_settings={"help_option_names": ["-h", "--help"]},
-        help="""Tag Bulk FHIR data with Gen3 compatible authorization tags.
-
-    \b 
-    input_file (str): Input .ndjson file with Bulk FHIR data, MUST be one resource type per file
-    output_file (str): Output file name, also an .ndjson file
-    config (str): .yaml file with authorization rules, see docs/howto/fhir.md for more details on formatting
-    """,
-    )
-    def cli():
-        """
-        CLI implementation of tag_fhir_resources_with_authz.
-        """
-
-    @fhir.command(
-        name="cleanup",
-        context_settings={"help_option_names": ["-h", "--help"]},
-        help="Remove all intermediate files in the tmp folder from previous runs",
-    )
-    def cleanup():
-        """
-        Remove all intermediate files in the tmp folder from previous runs
-        """
-
     main.add_command(fhir)
 
 main()
