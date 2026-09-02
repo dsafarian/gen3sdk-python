@@ -28,8 +28,11 @@ rules:
 
 #Example with multiple conditions
  - resource_type: "Specimen"
-   condition: ""Specimen.status = 'available' and Specimen.Type = 'Blood specimen (specimen)'""
+   condition: "Specimen.status = 'available' and Specimen.Type = 'Blood specimen (specimen)'"
    authz: "/programs/Alpha/projects/Biobank"
 ```
 
-And example config.yaml file can be found in [fhir_config.yaml](tests/test_data/fhir_config.yaml)
+And example config.yaml file can be found in [fhir_config.yaml](../../tests/test_data/fhir_config.yaml)
+To run the fhir transfrom with synthetic test data:
+
+`poetry run gen3 -vv fhir transform ./tests/test_data/Patient.ndjson ./test_Patient.ndjson ./tests/test_data/fhir_config.yaml`
