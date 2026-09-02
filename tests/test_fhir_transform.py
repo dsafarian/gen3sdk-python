@@ -32,8 +32,8 @@ TAGGER = Gen3FHIRAuthzTagger(CONFIG_SRC)
 BATCH_SIZE = 1
 BASE_RECORD = {
     "timestamp": "2026-08-12T21:00:20.677168+00:00",
-    "input_file": "./tests/test_data/Patient.ndjson",
-    "output_file": "./tests/test_data/fhir_outputs/status.ndjson",
+    "input_file": f"{IN}",
+    "output_file": f"{pathlib.Path(TMP_ROOT)}/status.ndjson",
     "config_hash": "9c61e70e3ea403e3daf1ee795036253c",
     "batch_size": 1,
 }
