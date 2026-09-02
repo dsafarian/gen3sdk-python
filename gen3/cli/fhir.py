@@ -40,7 +40,7 @@ def fhir():
     "--work_dir",
     type=click.Path(),
     metavar="work_dir",
-    help=f"Specify which working directory to clean, if not specified the default ({DEFAULT_WORK_DIR}) will be cleaned. Can also be set as an environment variable: GEN3_FHIR_WORK_DIR",
+    help=f"Specify which working directory to clean, if not specified the default ({DEFAULT_WORK_DIR}) will be used. Can also be set as an environment variable: GEN3_FHIR_WORK_DIR",
 )
 @click.option(
     "-b",

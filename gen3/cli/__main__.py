@@ -151,15 +151,16 @@ try:
     import gen3.cli.fhir as fhir
 
     main.add_command(fhir.fhir)
-except ImportError:
+except ImportError as e:
 
-    @click.group(name="fhir")
+    @click.group(name="fhir", epilog="Requires FHIR packages which aren't installed by default. Install the 'fhir' extras: poetry install --all-extras")
     def fhir():
         """Commands for FHIR data processing: transform & cleanup"""
-        raise click.ClickException(
-            "Requires FHIR packages which aren't installed by default. Install the 'fhir' extras: poetry install --all-extras"
-        )
+        raise
 
     main.add_command(fhir)
+
+
+
 
 main()
