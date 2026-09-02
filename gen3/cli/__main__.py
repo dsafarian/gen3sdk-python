@@ -153,14 +153,15 @@ try:
     main.add_command(fhir.fhir)
 except ImportError as e:
 
-    @click.group(name="fhir", epilog="Requires FHIR packages which aren't installed by default. Install the 'fhir' extras: poetry install --all-extras")
+    @click.group(
+        name="fhir",
+        epilog="Requires FHIR packages which aren't installed by default. Install the 'fhir' extras: poetry install --all-extras",
+    )
     def fhir():
         """Commands for FHIR data processing: transform & cleanup"""
         raise
 
     main.add_command(fhir)
-
-
 
 
 main()
