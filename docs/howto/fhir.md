@@ -13,12 +13,22 @@ For a list of commands and options run
 
 `gen3 fhir --help`
 
-For example, the following tags the 'Patient.ndjson' file with Gen3 authorization and outputs 'gen3_Patient.ndjson' using the authorization rules from 'config.yaml'
+For example, the following tags the 'Patient.ndjson' file with Gen3 authorization and outputs 'gen3_Patient.ndjson' using the authorization rules from 'config.yaml'. 
 
 `gen3 fhir transform Patient.ndjson gen3_Patient.ndjson config.yaml --batch_size 10000`
 
+INPUT_FILE:
+There can only be one resource type per NDJSON file. 
 
-The authorization configuration file has to be in yaml format and can have multiple conditions, e.g:
+OUTPUT_FILE:
+Requires a distinct name/path from the input file to prevent overwriting the input file.
+
+CONFIG.YAML:
+The authorization configuration file has to be in yaml format and can have multiple conditions, as well as a `global_authz` which overrides all other rules. Conditions use [https://hl7.org/fhirpath/](FHIRPath) syntax.
+
+A resource matching two rules will throw an error and will require reconfiguration of the YAML file. 
+
+Example rules:
 
 ```yaml
 rules:
