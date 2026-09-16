@@ -186,7 +186,7 @@ def test_transform(tagger):
     # all .chunk files deleted after transformation completed
     assert (
         len(list(TMP_ROOT.glob("*.chunk"))) == 0
-    ), f"Expected 0 chunks after transformation completed, found {len(list(TMP_ROOT.glob("*.chunk")))}"
+    ), f"Expected 0 chunks after transformation completed, found {len(list(TMP_ROOT.glob('*.chunk')))}"
 
 
 def test_merge():
@@ -218,7 +218,7 @@ def test_merge():
     # no leftover .done files after merge completed
     assert (
         len(list(TMP_ROOT.glob("*.done"))) == 0
-    ), f"Expected 0 .done files after transformation completed, found {len(list(TMP_ROOT.glob("*.done")))}"
+    ), f"Expected 0 .done files after transformation completed, found {len(list(TMP_ROOT.glob('*.done')))}"
     # output file is the same length as the combined transformed files and the length of the input file
     assert (
         len(fout) == transformed_sum == len(fin)
