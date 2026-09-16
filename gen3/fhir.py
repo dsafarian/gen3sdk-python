@@ -112,7 +112,7 @@ class Gen3FHIRAuthzTagger:
 
         if len(matches) > 1:
             raise ValueError(
-                f"Resource {resource.get('id')!r} matched {len(matches)} authorization conditions; expected at most 1. Conflicting: {[m["condition"] for m in matches]}"
+                f"Resource {resource.get('id')!r} matched {len(matches)} authorization conditions; expected at most 1. Conflicting: {[m['condition'] for m in matches]}"
             )
 
         elif len(matches) == 1:
