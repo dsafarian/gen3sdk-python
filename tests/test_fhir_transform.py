@@ -425,6 +425,8 @@ def test_cli():
         CONFIG_SRC,
         "--batch_size",
         str(BATCH_SIZE),
+        "--work_dir",
+        TMP_ROOT,
     ]
     result = subprocess.run(
         ["gen3", "fhir", "transform", *args],
@@ -464,6 +466,8 @@ def test_invalid_batch_size_is_rejected(bad):
         CONFIG_SRC,
         "--batch_size",
         str(bad),
+        "--work_dir",
+        TMP_ROOT,
     ]
     result = subprocess.run(
         ["gen3", "fhir", "transform", *args],
@@ -487,6 +491,8 @@ def test_missing_input_file_fails_cleanly():
         CONFIG_SRC,
         "--batch_size",
         str(BATCH_SIZE),
+        "--work_dir",
+        TMP_ROOT,
     ]
     result = subprocess.run(
         ["gen3", "fhir", "transform", *args],
@@ -510,6 +516,8 @@ def test_output_directory_does_not_exist():
         CONFIG_SRC,
         "--batch_size",
         str(BATCH_SIZE),
+        "--work_dir",
+        TMP_ROOT,
     ]
     result = subprocess.run(
         ["gen3", "fhir", "transform", *args],
@@ -531,6 +539,8 @@ def test_global_config_overrides_other_rules():
         GLOBAL_CONFIG_SRC,
         "--batch_size",
         str(BATCH_SIZE),
+        "--work_dir",
+        TMP_ROOT,
     ]
     result = subprocess.run(
         ["gen3", "fhir", "transform", *args],
