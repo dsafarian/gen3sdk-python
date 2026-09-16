@@ -98,7 +98,7 @@ def cli(
 @click.option(
     "--dry-run",
     is_flag=True,
-    help="Report what would be deleted with --cleanup without deleting the files",
+    help="Report what would be deleted without deleting the files",
 )
 @click.option(
     "--force",
