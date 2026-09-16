@@ -42,7 +42,10 @@ class Gen3FHIRAuthzTagger:
 
         Args:
             config_path (str): the name/path of the config.yaml file
-            custom_hook (Callable): used for authorization instead of the configuration if called
+            custom_hook (Callable[[dict], str] | None): if provided, called
+                instead of the configuration to determine authz. Receives the
+                FHIR resource as a dict and returns the authz path. A falsy
+                return falls through to the configured rules.
             fhir_version (str): FHIR model version
         """
 
