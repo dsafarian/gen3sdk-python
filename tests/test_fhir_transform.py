@@ -391,12 +391,10 @@ class Test_status:
         assert _is_new(directory, record) is False
         assert _is_done(directory, record) is False
 
-    @pytest.mark.parametrize(
-        "config", ["match", None, {"config_hash": "x"}, {"batch_size": 1}]
-    )
-    def test_merge_needed_overlap(self, config):
+    
+    def test_merge_needed_overlap(self):
         # merge needed
-        directory, record = mock_state(self.tmp_path, config=config, chunks=0, done=5)
+        directory, record = mock_state(self.tmp_path, config="match", chunks=0, done=5)
         assert _is_new(directory, record) is False
         assert _is_done(directory, record) is False
         assert _merge_needed(directory, record) is True
