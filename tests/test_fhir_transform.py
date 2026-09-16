@@ -116,7 +116,13 @@ def test_fhir_output():
         for line in pathlib.Path(SRC).read_bytes().splitlines()
         if line.strip()
     ]
-    tag_fhir_resources_with_authz(IN, OUT, CONFIG_SRC, BATCH_SIZE, TMP_ROOT, 8)
+    tag_fhir_resources_with_authz(
+        input_file=IN,
+        output_file=OUT,
+        config=CONFIG_SRC,
+        batch_size=BATCH_SIZE,
+        work_dir=TMP_ROOT,
+    )
     out = [
         json.loads(line)
         for line in pathlib.Path(OUT).read_bytes().splitlines()
