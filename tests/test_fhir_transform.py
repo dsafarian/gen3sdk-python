@@ -50,25 +50,25 @@ def tagger():
     return Gen3FHIRAuthzTagger(CONFIG_SRC)
 
 def mock_state(
-    directory,
-    config="match",
-    chunks=0,
-    done=0,
-    output=None,
-    record=None,
-):
+    directory: dir,
+    config: str | dict | None ="match",
+    chunks: int =0,
+    done: int =0,
+    output: str | None =None,
+    record: dict | None=None,
+) -> tuple[str | os.PathLike[str], dict]:
     """
     Build an on-disk run directory and return (directory, record).
 
     Args:
-        tmp_path (Path): parent directory; a fresh subdir is created under it
-        config: "match" -> .config.json equal to record
+        tmp_path (dir): parent directory; a fresh subdir is created under it
+        config (str|dict|None): "match" -> .config.json equal to record
                 dict    -> record updated with these overrides
                 str     -> written verbatim (for malformed-JSON cases)
                 None    -> no .config.json written
         chunks (int): number of chunk_NNN.chunk files
         done (int): number of chunk_NNN.done files (indices align with chunks)
-        output: None -> no output file, "empty" -> touched, "full" -> one row
+        output(str): None -> no output file, "empty" -> touched, "full" -> one row
         record (dict): base record; defaults to BASE_RECORD
 
     Returns:
@@ -171,8 +171,14 @@ def test_chunking():
     ), "Recombined chunks do not match the content of the input file"
 
 
-def test_transform(tagger):
-    """Asserts transform_chunk creates the same number of .done files as .chunk and no .chunk files remain once transformation is completed"""
+def test_transform(tagger: Gen3FHIRAuthzTagger):
+    """Asserts transform_chunk creates the same number of .done files as .chunk and no .chunk files remain once transformation is completed
+    
+    Args:
+        tagger (Gen3FHIRAuthzTagger): The tagger instance to use for tagging the resources
+    
+    """
+
     tagger.relevant_authz_rules(os.path.basename(IN).split(".")[0])
     chunks = list(TMP_ROOT.glob("*.chunk"))
     for c in chunks:
@@ -456,8 +462,13 @@ def test_cli():
 
 
 @pytest.mark.parametrize("bad", [0, -1, None, "bad"])
-def test_invalid_batch_size_is_rejected(bad):
-    """Assert invalid batch_size is rejected and raises an error"""
+def test_invalid_batch_size_is_rejected(bad: int | str | None):
+    """Assert invalid batch_size is rejected and raises an error
+    
+    Args:
+        bad (int|str|None): bad inputs for batch_size
+        
+    """
     out = TMP_ROOT / "cli_test" / "cli_out.ndjson"
 
     args = [

@@ -5,6 +5,7 @@ from fhirpathpy import compile
 from fhirpathpy.models import models
 import click
 import os, glob
+from typing import Any
 import time
 from datetime import datetime, timezone
 import shutil
@@ -54,7 +55,7 @@ class Gen3FHIRAuthzTagger:
         self.custom_hook = custom_hook
         self.model = models[fhir_version]
 
-    def relevant_authz_rules(self, resource_type: str):
+    def relevant_authz_rules(self, resource_type: str) -> None:
         """
         Filters only the revlevant from the config.yaml file given the resource type.
 
@@ -153,9 +154,19 @@ class Gen3FHIRAuthzTagger:
         return resource
 
 
-def resolve_work_dir(
-    work_dir: str | os.PathLike[str] | None = None, clean: bool = False
-) -> pathlib.Path:
+def resolve_work_dir(work_dir: str | os.PathLike[str] | None = None, clean: bool = False) -> pathlib.Path:
+
+    """
+    Finds or creates the working directory for intermediate files and modifies the permissions to only make it readable by owner
+    
+    Args:
+        work_dir (str): static work directory where all run directories are stored
+        clean (bool):  True when used for cleaning up directories, False when used to initiate run and create the working directory
+        
+    Returns:
+        root (dir): Returns the path to the working directory
+    
+    """
     root = pathlib.Path(
         work_dir or os.environ.get("GEN3_FHIR_WORK_DIR") or DEFAULT_WORK_DIR
     ).expanduser()
@@ -171,8 +182,19 @@ def resolve_work_dir(
     return root
 
 
-def json_dumps(obj, default=None) -> bytes:
-    """Compact UTF-8 JSON bytes."""
+def json_dumps(obj: dict, default: Callable[[Any], Any] | None = None) -> bytes:
+    """Compact UTF-8 JSON bytes.
+    
+    Args: 
+        obj (dict): object to serialize
+        default (Callable | None): Called for objects the encoder can't serialize; should
+            return a serializable substitute or raise TypeError. If None
+            (the default), unsupported types raise TypeError.
+            
+    Returns:
+        bytes: UTF-8 encoded JSON with no whitespace between tokens and non-ASCII characters left unescaped.
+            
+    """
     return json.dumps(
         obj,
         ensure_ascii=False,
@@ -198,7 +220,7 @@ def get_sha256hash(input_file: str | os.PathLike[str]) -> str:
     return digest
 
 
-def get_resource_type(input_file, sample=5):
+def get_resource_type(input_file: str | os.PathLike[str], sample: int =5) -> str:
     """
     Check resource type within the input .ndjson file by reading the first few and last few lines
 
@@ -351,7 +373,7 @@ def cleanup_fhir_transform_artifacts(
         force (bool): If True, delete the whole temporary directory disregarding the status
 
     Returns:
-        count(int): number of directories deleted
+        count(int): number of directories deleted / flagged for deletion (if dry_run=True)
     """
     working_dir = resolve_work_dir(work_dir, clean=True)
     if not working_dir.is_dir():
@@ -383,7 +405,7 @@ def split_file(
     input_file: str | os.PathLike[str],
     batch_size: int,
     output_dir: str | os.PathLike[str],
-):
+) -> None:
     """
     Split ndjson file into manageable batch-sized chunks
 
@@ -409,15 +431,15 @@ def split_file(
 
 def transform_chunk(
     input_file: str | os.PathLike[str],
-    tagger: object,
+    tagger: Gen3FHIRAuthzTagger,
     output_dir: str | os.PathLike[str],
-):
+) -> None:
     """
     Tag each resource entry with appropriate Gen3 authorization tag based on rules in a config.yaml file
 
     Args:
         input_file (str): .chunk file to transform
-        tagger (object): The tagger instance to use for tagging the resources
+        tagger (Gen3FHIRAuthzTagger): The tagger instance to use for tagging the resources
         output_dir (str): The directory path of where to write the intermediate files to
     """
     with open(input_file, "rb") as fin, open(
@@ -442,7 +464,7 @@ def transform_chunk(
 
 def merge_chunks(
     input_files: list[str | os.PathLike[str]], output_file: str | os.PathLike[str]
-):
+) -> None:
     """
     Merge all tagged files back to one ndjson file
 
@@ -476,7 +498,7 @@ def tag_fhir_resource_pipeline(
     output_dir: str | os.PathLike[str],
     record: dict,
     batch_size: int = 10000,
-):
+) -> None:
     """
 
     Stream-transform Bulk FHIR data to Gen3 compatible data with authorization tagging.
@@ -548,7 +570,7 @@ def tag_fhir_resources_with_authz(
     batch_size: int = 10000,
     work_dir: str | os.PathLike[str] = DEFAULT_WORK_DIR,
     force: bool = False,
-):
+) -> None:
     """
     End-to-end pipeline for FHIR resource tagging.
     Stream-transform Bulk FHIR data to Gen3 compatible data with authorization tagging.
