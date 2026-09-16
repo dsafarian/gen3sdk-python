@@ -28,7 +28,7 @@ CONFIG_SRC = pathlib.Path(f"{pathlib.Path(__file__).parent}/test_data/fhir_confi
 GLOBAL_CONFIG_SRC = pathlib.Path(
     f"{pathlib.Path(__file__).parent}/test_data/fhir_global_config.yaml"
 )
-TAGGER = Gen3FHIRAuthzTagger(CONFIG_SRC)
+
 BATCH_SIZE = 1
 BASE_RECORD = {
     "timestamp": "2026-08-12T21:00:20.677168+00:00",
@@ -44,6 +44,10 @@ def tmp_root():
     shutil.rmtree(TMP_ROOT, ignore_errors=True)
     TMP_ROOT.mkdir(parents=True)
 
+@pytest.fixture(scope="session")
+def tagger():
+    """A tagger built from the synthetic Patient rules config."""
+    return Gen3FHIRAuthzTagger(CONFIG_SRC)
 
 def mock_state(
     directory,
@@ -161,12 +165,12 @@ def test_chunking():
     ), "Recombined chunks do not match the content of the input file"
 
 
-def test_transform():
+def test_transform(tagger):
     """Asserts transform_chunk creates the same number of .done files as .chunk and no .chunk files remain once transformation is completed"""
-    TAGGER.relevant_authz_rules(os.path.basename(IN).split(".")[0])
+    tagger.relevant_authz_rules(os.path.basename(IN).split(".")[0])
     chunks = list(TMP_ROOT.glob("*.chunk"))
     for c in chunks:
-        transform_chunk(c, TAGGER, TMP_ROOT)
+        transform_chunk(c, tagger, TMP_ROOT)
     transformed = list(TMP_ROOT.glob("*.done"))
 
     # same number of transformed files as chunk files
