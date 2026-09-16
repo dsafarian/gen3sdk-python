@@ -236,34 +236,34 @@ class Test_is_new:
 
     tmp_path = TMP_ROOT / "test_new"
 
-    def test_is_new_with_missing_directory(tmp_path):
+    def test_is_new_with_missing_directory(self):
         # directory missing
         assert _is_new(TMP_ROOT / "does_not_exist", BASE_RECORD) is True
 
-    def test_is_new_directory_has_no_config_file(tmp_path):
+    def test_is_new_directory_has_no_config_file(self):
         # no config file
-        directory, record = mock_state(tmp_path, config=None)
+        directory, record = mock_state(self.tmp_path, config=None)
         assert _is_new(directory, record) is True
 
-    def test_is_new_directory_has_corrupt_config_file(tmp_path):
+    def test_is_new_directory_has_corrupt_config_file(self):
         # check corrupt config file
-        directory, record = mock_state(tmp_path, config="{not valid json")
+        directory, record = mock_state(self.tmp_path, config="{not valid json")
         assert _is_new(directory, record) is True
 
-    def test_is_new_directory_has_empty_config_file(tmp_path):
+    def test_is_new_directory_has_empty_config_file(self):
         # check empty config file
-        directory, record = mock_state(tmp_path, config="")
+        directory, record = mock_state(self.tmp_path, config="")
         assert _is_new(directory, record) is True
 
-    def test_is_not_new_when_config_matches(tmp_path):
+    def test_is_not_new_when_config_matches(self):
         # check if not new when everything matches
-        directory, record = mock_state(tmp_path, config="match")
+        directory, record = mock_state(self.tmp_path, config="match")
         assert _is_new(directory, record) is False
 
-    def test_is_new_when_config_changed(tmp_path):
+    def test_is_new_when_config_changed(self):
         # check when config changed
         directory, record = mock_state(
-            tmp_path, config={"config_hash": "different"}
+            self.tmp_path, config={"config_hash": "different"}
         )
         assert _is_new(directory, record) is True
 
@@ -286,53 +286,53 @@ class Test_is_done:
 
     tmp_path = TMP_ROOT / "test_done"
 
-    def test_is_done_with_matching_config_and_empty_output(tmp_path):
+    def test_is_done_with_matching_config_and_empty_output(self):
         # config matches but output is empty
-        directory, record = mock_state(tmp_path, config="match", output="empty")
+        directory, record = mock_state(self.tmp_path, config="match", output="empty")
         assert _is_done(directory, record) is False
 
-    def test_is_done_with_matching_config_and_no_output(tmp_path):
+    def test_is_done_with_matching_config_and_no_output(self):
         # config matches but no output
-        directory, record = mock_state(tmp_path, config="match", output=None)
+        directory, record = mock_state(self.tmp_path, config="match", output=None)
         assert _is_done(directory, record) is False
 
-    def test_is_done_with_no_config_and_full_output(tmp_path):
+    def test_is_done_with_no_config_and_full_output(self):
         # output full but no config file
-        directory, record = mock_state(tmp_path, config=None, output="full")
+        directory, record = mock_state(self.tmp_path, config=None, output="full")
         assert _is_done(directory, record) is False
 
-    def test_is_done_with_corrupt_config_and_full_output(tmp_path):
+    def test_is_done_with_corrupt_config_and_full_output(self):
         # output full but config file is corrupt
-        directory, record = mock_state(tmp_path, config="{bad", output="full")
+        directory, record = mock_state(self.tmp_path, config="{bad", output="full")
         assert _is_done(directory, record) is False
 
     @pytest.mark.parametrize("batch_size", [0, 100, 50, 4])
-    def test_is_done_with_full_output_and_different_batch_size(tmp_path, batch_size):
+    def test_is_done_with_full_output_and_different_batch_size(self, batch_size):
         # output full batch_size changed
         directory, record = mock_state(
-            tmp_path, config={"batch_size": batch_size}, output="full"
+            self.tmp_path, config={"batch_size": batch_size}, output="full"
         )
         assert _is_done(directory, record) is False
 
-    def test_is_done_with_full_output_and_different_config_hash(tmp_path):
+    def test_is_done_with_full_output_and_different_config_hash(self):
         # output full but config changed
         directory, record = mock_state(
-            tmp_path, config={"config_hash": "different"}, output="full"
+            self.tmp_path, config={"config_hash": "different"}, output="full"
         )
         assert _is_done(directory, record) is False
 
-    def test_is_done_with_full_output_and_different_output_filename(tmp_path):
+    def test_is_done_with_full_output_and_different_output_filename(self):
         # output full but output filename changed
         directory, record = mock_state(
-            tmp_path,
+            self.tmp_path,
             config={"output_file": "/tmp/somewhere_else.ndjson"},
             output="full",
         )
         assert _is_done(directory, record) is False
 
-    def test_is_done_with_full_output_and_matching_config(tmp_path):
+    def test_is_done_with_full_output_and_matching_config(self):
         # config matches and output is full
-        directory, record = mock_state(tmp_path, config="match", output="full")
+        directory, record = mock_state(self.tmp_path, config="match", output="full")
         assert _is_done(directory, record) is True
 
 
@@ -341,30 +341,30 @@ class Test_merge_needed:
 
     tmp_path = TMP_ROOT / "outputs" / "test_merge"
 
-    def test_merge_needed_when_no_done_files_remaining(tmp_path):
+    def test_merge_needed_when_no_done_files_remaining(self):
         # no merge on clean directory
-        directory, record = mock_state(tmp_path, done=0)
+        directory, record = mock_state(self.tmp_path, done=0)
         assert _merge_needed(directory, record) is False
 
     @pytest.mark.parametrize("done_files", [5, 20, 57, 100])
-    def test_merge_needed_when_done_files_remaining(tmp_path, done_files):
+    def test_merge_needed_when_done_files_remaining(self, done_files):
         # merge when done files left
-        directory, record = mock_state(tmp_path, done=done_files)
+        directory, record = mock_state(self.tmp_path, done=done_files)
         assert _merge_needed(directory, record) is True
 
     @pytest.mark.parametrize(
         ["chunk_files", "done_files"], [(5, 2), (5, 5), (5, 7), (1, 10)]
     )
     def test_merge_needed_when_chunk_and_done_files_remaining(
-        tmp_path, chunk_files, done_files
+        self, chunk_files, done_files
     ):
         # no merge when both chunk and done files left
         directory, record = mock_state(
-            tmp_path, chunks=chunk_files, done=done_files
+            self.tmp_path, chunks=chunk_files, done=done_files
         )
         assert _merge_needed(directory, record) is False
 
-    def test_merge_needed_when_directory_missing():
+    def test_merge_needed_when_directory_missing(self):
         # no merge when directory missing
         assert _merge_needed(TMP_ROOT / "gone", BASE_RECORD) is False
 
@@ -374,9 +374,9 @@ class Test_status:
 
     tmp_path = TMP_ROOT / "test_status"
 
-    def test_fresh_directory(tmp_path):
+    def test_fresh_directory(self):
         # fresh directory
-        directory, record = mock_state(tmp_path, config=None)
+        directory, record = mock_state(self.tmp_path, config=None)
         assert _is_new(directory, record) is True
         assert _is_done(directory, record) is False
         assert _merge_needed(directory, record) is False
@@ -384,9 +384,9 @@ class Test_status:
     @pytest.mark.parametrize(
         ["chunk_files", "done_files"], [(5, 2), (5, 5), (5, 7), (1, 10)]
     )
-    def test_need_to_resume_overlap(tmp_path, chunk_files, done_files):
+    def test_need_to_resume_overlap(self, chunk_files, done_files):
         directory, record = mock_state(
-            tmp_path, config="match", chunks=chunk_files, done=done_files
+            self.tmp_path, config="match", chunks=chunk_files, done=done_files
         )
         assert _is_new(directory, record) is False
         assert _is_done(directory, record) is False
@@ -394,16 +394,16 @@ class Test_status:
     @pytest.mark.parametrize(
         "config", ["match", None, {"config_hash": "x"}, {"batch_size": 1}]
     )
-    def test_merge_needed_overlap(tmp_path, config):
+    def test_merge_needed_overlap(self, config):
         # merge needed
-        directory, record = mock_state(tmp_path, config=config, chunks=0, done=5)
+        directory, record = mock_state(self.tmp_path, config=config, chunks=0, done=5)
         assert _is_new(directory, record) is False
         assert _is_done(directory, record) is False
         assert _merge_needed(directory, record) is True
 
-    def test_run_complete(tmp_path):
+    def test_run_complete(self):
         # fully complete
-        directory, record = mock_state(tmp_path, config="match", output="full")
+        directory, record = mock_state(self.tmp_path, config="match", output="full")
         assert _is_done(directory, record) is True
         assert _merge_needed(directory, record) is False
         assert _is_new(directory, record) is False
@@ -411,7 +411,7 @@ class Test_status:
     @pytest.mark.parametrize(
         "state", ["match", None, {"config_hash": "x"}, {"batch_size": 1}]
     )
-    def test_new_and_done_are_mutually_exclusive(state):
+    def test_new_and_done_are_mutually_exclusive(self,state):
         # new and done are mutually exclusive
         directory, record = mock_state(
             TMP_ROOT / str(id(state)), config=state, output="full"
