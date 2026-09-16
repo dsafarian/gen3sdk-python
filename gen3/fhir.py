@@ -340,16 +340,17 @@ def _merge_needed(directory: str | os.PathLike[str], record: dict) -> bool:
 
 
 def cleanup_fhir_transform_artifacts(
-    work_dir, dry_run: bool = False, force: bool = False
+    work_dir: str | os.PathLike[str] = DEFAULT_WORK_DIR, dry_run: bool = False, force: bool = False
 ) -> int:
     """
     Remove run dirs whose owning process is gone.
 
     Args:
+        work_dir (str): static work directory where all run directories are stored
         dry_run (bool): If True, lists all directories which would be removed, but not actually remove them
         force (bool): If True, delete the whole temporary directory disregarding the status
 
-    Output:
+    Returns:
         count(int): number of directories deleted
     """
     working_dir = resolve_work_dir(work_dir, clean=True)
@@ -359,8 +360,10 @@ def cleanup_fhir_transform_artifacts(
 
     # force to delete everything disregarding status
     if force:
+        count = sum(1 for p in working_dir.glob("*") if p.is_dir())
+        logging.info(f"{count} run dir(s) deleted")
         shutil.rmtree(working_dir, ignore_errors=True)
-        return
+        return count
 
     count = 0
     for run_dir in sorted(working_dir.glob("*")):
